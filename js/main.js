@@ -164,12 +164,7 @@ function createMapCard(map) {
     title.className = 'map-card-title';
     title.textContent = map.name;
     
-    const meta = document.createElement('p');
-    meta.className = 'map-card-meta';
-    meta.textContent = map.meta || 'Tactical Map';
-    
     overlay.appendChild(title);
-    overlay.appendChild(meta);
     imageContainer.appendChild(img);
     imageContainer.appendChild(overlay);
     card.appendChild(imageContainer);
