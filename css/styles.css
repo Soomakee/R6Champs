@@ -449,6 +449,7 @@ body {
     pointer-events: auto;
     cursor: crosshair;
 }
+/* When draw mode is off, JS sets pointer-events: none so touch/scroll passes through */
 
 /* ============================================
    DRAWING TOOLBAR
@@ -516,6 +517,18 @@ body {
     border-color: var(--tool-eraser);
     color: var(--tool-eraser);
     background-color: rgba(108, 117, 125, 0.2);
+}
+
+/* Draw mode toggle - wider for "Drawing: Off" / "Drawing: On" text */
+.tool-btn.draw-mode-toggle {
+    min-width: 120px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+.tool-btn.draw-mode-toggle.active {
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+    background-color: rgba(230, 57, 70, 0.15);
 }
 
 /* Brush Size Slider */

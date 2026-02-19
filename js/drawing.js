@@ -25,7 +25,8 @@ const DrawingState = {
     lastY: 0,
     currentFloorId: null,
     canvasContexts: new Map(), // Store canvas contexts per floor
-    canvasHistory: new Map()   // Store canvas history per floor
+    canvasHistory: new Map(),  // Store canvas history per floor
+    drawModeEnabled: false    // Must be toggled on before drawing (prevents accidental draw on scroll)
 };
 
 // ============================================
@@ -87,6 +88,8 @@ function initializeDrawingCanvas(floorId) {
         
         // Attach event listeners
         attachDrawingEvents(canvas);
+        // Apply current draw mode (pointer-events so scroll works when draw mode off)
+        updateCanvasDrawMode();
     };
     
     if (activeImage.complete) {
@@ -170,6 +173,7 @@ function getCanvasCoordinates(canvas, event) {
  * @param {MouseEvent|TouchEvent} e - Event object
  */
 function handleDrawStart(e) {
+    if (!DrawingState.drawModeEnabled) return;
     e.preventDefault();
     const canvas = document.getElementById('drawing-canvas');
     if (!canvas) return;
@@ -188,6 +192,7 @@ function handleDrawStart(e) {
  * @param {TouchEvent} e - Touch event object
  */
 function handleTouchStart(e) {
+    if (!DrawingState.drawModeEnabled) return;
     e.preventDefault();
     handleDrawStart(e);
 }
@@ -261,6 +266,47 @@ function draw(x1, y1, x2, y2) {
 }
 
 // ============================================
+// DRAW MODE TOGGLE (required before drawing; prevents scroll-from-drawing on mobile)
+// ============================================
+
+/**
+ * Enable or disable draw mode. When off, canvas does not capture pointer/touch so scrolling works.
+ */
+function setDrawModeEnabled(enabled) {
+    DrawingState.drawModeEnabled = !!enabled;
+    updateCanvasDrawMode();
+    const btn = document.getElementById('draw-mode-toggle');
+    if (btn) {
+        btn.classList.toggle('active', DrawingState.drawModeEnabled);
+        btn.setAttribute('title', DrawingState.drawModeEnabled ? 'Drawing on – tap to disable' : 'Enable drawing (tap to draw on map)');
+        btn.textContent = DrawingState.drawModeEnabled ? 'Drawing: On' : 'Drawing: Off';
+    }
+}
+
+/**
+ * Toggle draw mode on/off.
+ */
+function toggleDrawMode() {
+    setDrawModeEnabled(!DrawingState.drawModeEnabled);
+}
+
+/**
+ * Update canvas pointer-events and cursor based on draw mode.
+ * When off: pointer-events none so touch/scroll passes through.
+ */
+function updateCanvasDrawMode() {
+    const canvas = document.getElementById('drawing-canvas');
+    if (!canvas) return;
+    if (DrawingState.drawModeEnabled) {
+        canvas.style.pointerEvents = 'auto';
+        canvas.style.cursor = DrawingState.currentTool === 'eraser' ? 'cell' : 'crosshair';
+    } else {
+        canvas.style.pointerEvents = 'none';
+        canvas.style.cursor = 'default';
+    }
+}
+
+// ============================================
 // TOOL CONTROLS
 // ============================================
 
@@ -282,10 +328,8 @@ function setTool(tool) {
         eraserBtn.classList.toggle('active', tool === 'eraser');
     }
     
-    // Update cursor
-    const canvas = document.getElementById('drawing-canvas');
-    if (canvas) {
-        canvas.style.cursor = tool === 'eraser' ? 'cell' : 'crosshair';
+    if (DrawingState.drawModeEnabled) {
+        updateCanvasDrawMode();
     }
 }
 
@@ -346,6 +390,13 @@ function clearCanvas() {
  * Initialize the drawing toolbar
  */
 function initializeDrawingToolbar() {
+    // Draw mode toggle (must be on before drawing; prevents accidental draw on scroll/mobile)
+    const drawModeBtn = document.getElementById('draw-mode-toggle');
+    if (drawModeBtn) {
+        drawModeBtn.addEventListener('click', toggleDrawMode);
+        setDrawModeEnabled(DrawingState.drawModeEnabled);
+    }
+    
     // Pencil button
     const pencilBtn = document.getElementById('tool-pencil');
     if (pencilBtn) {
@@ -435,6 +486,8 @@ window.DrawingTool = {
     setTool,
     setBrushSize,
     setBrushColor,
+    setDrawModeEnabled,
+    toggleDrawMode,
     clearCanvas,
     initializeDrawingCanvas,
     getState: () => ({ ...DrawingState })
