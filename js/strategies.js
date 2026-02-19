@@ -352,7 +352,7 @@ function createNewStrategy() {
  * Load a strategy onto the map
  * @param {string} strategyId - ID of strategy to load
  */
-function loadStrategy(strategyId) {
+function loadStrategy(strategyId, isForEditing = false) {
     const key = STORAGE_KEY_PREFIX + strategyId;
     const strategy = JSON.parse(localStorage.getItem(key));
     if (!strategy) return;
@@ -380,8 +380,10 @@ function loadStrategy(strategyId) {
     StrategyState.currentStrategyId = strategyId;
     updateActiveStrategyItem(strategyId);
     
-    // Exit edit mode if active
-    exitEditMode();
+    // Exit edit mode if active, unless we are loading for edit
+    if (!isForEditing) {
+        exitEditMode();
+    }
 }
 
 /**
