@@ -39,8 +39,15 @@
 
     <!-- Main Content -->
     <main class="homepage-container">
-        <h1 class="page-title">Select a Map</h1>
+        <h1 class="page-title" id="map-page-title">Select a Map</h1>
         <p class="page-subtitle">Choose a map to view blueprints and plan your strategy</p>
+        
+        <div class="map-filter-bar">
+            <span class="map-filter-caption">Showing: <strong id="map-filter-caption-text">Ranked rotation</strong></span>
+            <button type="button" id="map-filter-btn" class="map-filter-btn" aria-pressed="false">
+                <span id="map-filter-label">Show all maps</span>
+            </button>
+        </div>
         
         <!-- Map Grid - Populated by JavaScript -->
         <div id="map-grid" class="map-grid">

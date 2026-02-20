@@ -275,19 +275,7 @@ function draw(x1, y1, x2, y2) {
 function setDrawModeEnabled(enabled) {
     DrawingState.drawModeEnabled = !!enabled;
     updateCanvasDrawMode();
-    const btn = document.getElementById('draw-mode-toggle');
-    if (btn) {
-        btn.classList.toggle('active', DrawingState.drawModeEnabled);
-        btn.setAttribute('title', DrawingState.drawModeEnabled ? 'Drawing on – tap to disable' : 'Enable drawing (tap to draw on map)');
-        btn.textContent = DrawingState.drawModeEnabled ? 'Drawing: On' : 'Drawing: Off';
-    }
-}
-
-/**
- * Toggle draw mode on/off.
- */
-function toggleDrawMode() {
-    setDrawModeEnabled(!DrawingState.drawModeEnabled);
+    updateToolButtonStates();
 }
 
 /**
@@ -311,23 +299,28 @@ function updateCanvasDrawMode() {
 // ============================================
 
 /**
+ * Update pencil/eraser button active state (active only when draw mode is on and tool matches).
+ */
+function updateToolButtonStates() {
+    const pencilBtn = document.getElementById('tool-pencil');
+    const eraserBtn = document.getElementById('tool-eraser');
+    const on = DrawingState.drawModeEnabled;
+    if (pencilBtn) {
+        pencilBtn.classList.toggle('active', on && DrawingState.currentTool === 'pencil');
+        pencilBtn.setAttribute('title', on && DrawingState.currentTool === 'pencil' ? 'Pencil – tap again to disable drawing (P)' : 'Pencil – tap to enable drawing (P)');
+    }
+    if (eraserBtn) {
+        eraserBtn.classList.toggle('active', on && DrawingState.currentTool === 'eraser');
+    }
+}
+
+/**
  * Set the current drawing tool
  * @param {string} tool - 'pencil' or 'eraser'
  */
 function setTool(tool) {
     DrawingState.currentTool = tool;
-    
-    // Update UI
-    const pencilBtn = document.getElementById('tool-pencil');
-    const eraserBtn = document.getElementById('tool-eraser');
-    
-    if (pencilBtn) {
-        pencilBtn.classList.toggle('active', tool === 'pencil');
-    }
-    if (eraserBtn) {
-        eraserBtn.classList.toggle('active', tool === 'eraser');
-    }
-    
+    updateToolButtonStates();
     if (DrawingState.drawModeEnabled) {
         updateCanvasDrawMode();
     }
@@ -390,23 +383,28 @@ function clearCanvas() {
  * Initialize the drawing toolbar
  */
 function initializeDrawingToolbar() {
-    // Draw mode toggle (must be on before drawing; prevents accidental draw on scroll/mobile)
-    const drawModeBtn = document.getElementById('draw-mode-toggle');
-    if (drawModeBtn) {
-        drawModeBtn.addEventListener('click', toggleDrawMode);
-        setDrawModeEnabled(DrawingState.drawModeEnabled);
-    }
-    
-    // Pencil button
+    // Pencil button: toggles draw mode (off→on + pencil, on+pencil→off) or selects pencil
     const pencilBtn = document.getElementById('tool-pencil');
     if (pencilBtn) {
-        pencilBtn.addEventListener('click', () => setTool('pencil'));
+        pencilBtn.addEventListener('click', () => {
+            if (!DrawingState.drawModeEnabled) {
+                setDrawModeEnabled(true);
+                setTool('pencil');
+            } else if (DrawingState.currentTool === 'pencil') {
+                setDrawModeEnabled(false);
+            } else {
+                setTool('pencil');
+            }
+        });
     }
     
-    // Eraser button
+    // Eraser button: turns draw mode on if off, then selects eraser
     const eraserBtn = document.getElementById('tool-eraser');
     if (eraserBtn) {
-        eraserBtn.addEventListener('click', () => setTool('eraser'));
+        eraserBtn.addEventListener('click', () => {
+            if (!DrawingState.drawModeEnabled) setDrawModeEnabled(true);
+            setTool('eraser');
+        });
     }
     
     // Brush size slider
@@ -431,8 +429,9 @@ function initializeDrawingToolbar() {
         clearBtn.addEventListener('click', clearCanvas);
     }
     
-    // Set initial tool
+    // Set initial tool and tool button states (draw mode off by default)
     setTool('pencil');
+    updateToolButtonStates();
     updateBrushPreview();
 }
 
@@ -441,12 +440,20 @@ function initializeDrawingToolbar() {
 // ============================================
 
 document.addEventListener('keydown', (e) => {
-    // P for pencil
+    // P for pencil (same behavior as pencil button: toggle draw mode or select pencil)
     if (e.key === 'p' || e.key === 'P') {
-        setTool('pencil');
+        if (!DrawingState.drawModeEnabled) {
+            setDrawModeEnabled(true);
+            setTool('pencil');
+        } else if (DrawingState.currentTool === 'pencil') {
+            setDrawModeEnabled(false);
+        } else {
+            setTool('pencil');
+        }
     }
-    // E for eraser
+    // E for eraser (turn draw mode on if needed, then select eraser)
     else if (e.key === 'e' || e.key === 'E') {
+        if (!DrawingState.drawModeEnabled) setDrawModeEnabled(true);
         setTool('eraser');
     }
     // Delete or C for clear
@@ -487,7 +494,6 @@ window.DrawingTool = {
     setBrushSize,
     setBrushColor,
     setDrawModeEnabled,
-    toggleDrawMode,
     clearCanvas,
     initializeDrawingCanvas,
     getState: () => ({ ...DrawingState })

@@ -213,8 +213,49 @@ body {
 .page-subtitle {
     text-align: center;
     color: var(--text-secondary);
-    margin-bottom: 3rem;
+    margin-bottom: 1.5rem;
     font-size: 1.1rem;
+}
+
+.map-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.map-filter-caption {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+
+.map-filter-caption strong {
+    color: var(--text-primary);
+}
+
+.map-filter-btn {
+    padding: 0.5rem 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.map-filter-btn:hover {
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+}
+
+.map-filter-btn[aria-pressed="true"] {
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+    background: rgba(230, 57, 70, 0.15);
 }
 
 .map-grid {
@@ -519,18 +560,6 @@ body {
     background-color: rgba(108, 117, 125, 0.2);
 }
 
-/* Draw mode toggle - wider for "Drawing: Off" / "Drawing: On" text */
-.tool-btn.draw-mode-toggle {
-    min-width: 120px;
-    font-size: 0.85rem;
-    font-weight: 600;
-}
-.tool-btn.draw-mode-toggle.active {
-    border-color: var(--accent-primary);
-    color: var(--accent-primary);
-    background-color: rgba(230, 57, 70, 0.15);
-}
-
 /* Brush Size Slider */
 .brush-size-container {
     display: flex;
@@ -644,6 +673,19 @@ body {
     max-width: 1000px;
     margin: 0 auto;
     padding: 3rem 2rem;
+}
+
+.placeholder-map-content {
+    text-align: center;
+    padding: 4rem 2rem;
+}
+.placeholder-map-content .page-title {
+    margin-bottom: 1rem;
+}
+.placeholder-map-message {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+    margin-bottom: 2rem;
 }
 
 .content-title {
