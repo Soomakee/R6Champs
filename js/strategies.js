@@ -47,82 +47,9 @@
 
 /**
  * List of available icons for strategy placement
- * Add your custom icon filenames here (without extension)
- * Icons should be placed in /Images/Icons/ folder as PNG files
+ * Add icon filenames here (without .png) as you add PNG files to /Images/Icons/
  */
-const AVAILABLE_ICONS = [
-    // Example icons - replace with your actual icon files
-    'ash',
-    'thermite',
-    'thatcher',
-    'sledge',
-    'smoke',
-    'mute',
-    'castle',
-    'pulse',
-    'doc',
-    'rook',
-    'twitch',
-    'montagne',
-    'glaz',
-    'fuze',
-    'kapkan',
-    'tachanka',
-    'blitz',
-    'iq',
-    'jager',
-    'bandit',
-    'buck',
-    'frost',
-    'blackbeard',
-    'valkyrie',
-    'capitao',
-    'caveira',
-    'hibana',
-    'echo',
-    'jackal',
-    'mira',
-    'ying',
-    'lesion',
-    'ela',
-    'zofia',
-    'dokkaebi',
-    'vigil',
-    'lion',
-    'finka',
-    'maestro',
-    'alibi',
-    'maverick',
-    'clash',
-    'nomad',
-    'kaid',
-    'gridlock',
-    'mozzie',
-    'nokk',
-    'warden',
-    'amaru',
-    'goyo',
-    'kali',
-    'wamai',
-    'iana',
-    'oryx',
-    'ace',
-    'melusi',
-    'zero',
-    'aruni',
-    'flores',
-    'thunderbird',
-    'osa',
-    'thorn',
-    'azami',
-    'sens',
-    'grim',
-    'solis',
-    'brava',
-    'fenrir',
-    'tubarao',
-    'deimos'
-];
+const AVAILABLE_ICONS = ['ash', 'lion', 'sledge'];
 
 // ============================================
 // STRATEGY STATE MANAGEMENT
@@ -139,7 +66,8 @@ const StrategyState = {
     selectedIconId: null,         // Currently selected icon for placement
     isPlacingIcon: false,         // Whether we're in icon placement mode
     draggedIcon: null,            // Currently dragged icon element
-    dragOffset: { x: 0, y: 0 }    // Offset for smooth dragging
+    dragOffset: { x: 0, y: 0 },   // Offset for smooth dragging
+    dragFromToolbar: false        // True while dragging from toolbar (so we don't trigger click)
 };
 
 // Storage key prefix for localStorage
@@ -394,8 +322,8 @@ function enterEditMode(strategyId) {
     StrategyState.isEditMode = true;
     StrategyState.currentStrategyId = strategyId;
     
-    // Load the strategy first
-    loadStrategy(strategyId);
+    // Load the strategy for editing (pass true so loadStrategy doesn't call exitEditMode)
+    loadStrategy(strategyId, true);
     
     // Show edit mode banner
     const banner = document.getElementById('edit-mode-banner');
@@ -528,24 +456,95 @@ function initializeIconToolbar() {
     
     toolbar.innerHTML = '<span class="icon-toolbar-label">Operators:</span>';
     
+    if (AVAILABLE_ICONS.length === 0) {
+        const emptyMsg = document.createElement('span');
+        emptyMsg.className = 'icon-toolbar-empty';
+        emptyMsg.textContent = 'Add PNG files to Images/Icons and list them in strategies.js';
+        toolbar.appendChild(emptyMsg);
+        return;
+    }
+    
     AVAILABLE_ICONS.forEach(iconId => {
         const btn = document.createElement('button');
         btn.className = 'icon-btn';
         btn.dataset.iconId = iconId;
-        btn.title = iconId.charAt(0).toUpperCase() + iconId.slice(1);
+        btn.draggable = true;
+        btn.title = iconId.charAt(0).toUpperCase() + iconId.slice(1) + ' – drag onto map or click then click map';
         
         const img = document.createElement('img');
         img.src = `../Images/Icons/${iconId}.png`;
         img.alt = iconId;
+        img.draggable = false;
         img.onerror = () => {
             // If icon doesn't exist, show placeholder
             btn.innerHTML = `<span style="font-size: 10px; color: #666;">${iconId.substr(0, 3)}</span>`;
         };
         
         btn.appendChild(img);
-        btn.addEventListener('click', () => selectIconForPlacement(iconId));
+        btn.addEventListener('dragstart', (e) => handleIconToolbarDragStart(e, iconId));
+        btn.addEventListener('dragend', () => { StrategyState.dragFromToolbar = false; });
+        btn.addEventListener('click', (e) => {
+            if (StrategyState.dragFromToolbar) return;
+            selectIconForPlacement(iconId);
+        });
         toolbar.appendChild(btn);
     });
+}
+
+/**
+ * Handle drag start from icon toolbar – set data for drop on map
+ */
+function handleIconToolbarDragStart(e, iconId) {
+    if (!StrategyState.isEditMode) {
+        e.preventDefault();
+        return;
+    }
+    StrategyState.dragFromToolbar = true;
+    e.dataTransfer.setData('text/plain', iconId);
+    e.dataTransfer.effectAllowed = 'copy';
+    const img = e.target.querySelector('img');
+    if (img && img.complete) {
+        e.dataTransfer.setDragImage(img, img.width / 2, img.height / 2);
+    }
+}
+
+/**
+ * Handle dragover on map container – allow drop and show feedback
+ */
+function handleMapDragOver(e) {
+    if (!StrategyState.isEditMode) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    const container = e.currentTarget;
+    if (container && !container.classList.contains('map-drop-target')) {
+        container.classList.add('map-drop-target');
+    }
+}
+
+/**
+ * Handle drag leave – remove drop target styling when leaving map area
+ */
+function handleMapDragLeave(e) {
+    const container = e.currentTarget;
+    if (container && !container.contains(e.relatedTarget)) {
+        container.classList.remove('map-drop-target');
+    }
+}
+
+/**
+ * Handle drop on map – place icon at drop position
+ */
+function handleMapDrop(e) {
+    e.preventDefault();
+    const container = e.currentTarget;
+    container.classList.remove('map-drop-target');
+    if (!StrategyState.isEditMode) return;
+    const iconId = e.dataTransfer.getData('text/plain');
+    if (!iconId) return;
+    const rect = container.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    placeIconOnMap(iconId, x, y);
 }
 
 /**
@@ -781,10 +780,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize icon toolbar
     initializeIconToolbar();
     
-    // Attach map click handler for icon placement
+    // Attach map click and drag-drop handlers for icon placement
     const mapContainer = document.getElementById('map-image-container');
     if (mapContainer) {
         mapContainer.addEventListener('click', handleMapClickForIcon);
+        mapContainer.addEventListener('dragover', handleMapDragOver);
+        mapContainer.addEventListener('dragleave', handleMapDragLeave);
+        mapContainer.addEventListener('drop', handleMapDrop);
     }
     
     // Save strategy button

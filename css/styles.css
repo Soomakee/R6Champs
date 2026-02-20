@@ -445,6 +445,12 @@ body {
     background-color: var(--bg-secondary);
 }
 
+#map-image-container.map-drop-target {
+    outline: 3px dashed var(--accent-primary);
+    outline-offset: -2px;
+    background-color: rgba(230, 57, 70, 0.08);
+}
+
 .map-image-wrapper {
     position: relative;
     width: 100%;
@@ -1460,6 +1466,12 @@ body {
     font-weight: 600;
     margin-right: 0.5rem;
     white-space: nowrap;
+}
+
+.icon-toolbar-empty {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-style: italic;
 }
 
 .icon-btn {
