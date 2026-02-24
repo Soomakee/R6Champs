@@ -47,82 +47,9 @@
 
 /**
  * List of available icons for strategy placement
- * Add your custom icon filenames here (without extension)
- * Icons should be placed in /Images/Icons/ folder as PNG files
+ * Add icon filenames here (without .png) as you add PNG files to /Images/Icons/
  */
-const AVAILABLE_ICONS = [
-    // Example icons - replace with your actual icon files
-    'ash',
-    'thermite',
-    'thatcher',
-    'sledge',
-    'smoke',
-    'mute',
-    'castle',
-    'pulse',
-    'doc',
-    'rook',
-    'twitch',
-    'montagne',
-    'glaz',
-    'fuze',
-    'kapkan',
-    'tachanka',
-    'blitz',
-    'iq',
-    'jager',
-    'bandit',
-    'buck',
-    'frost',
-    'blackbeard',
-    'valkyrie',
-    'capitao',
-    'caveira',
-    'hibana',
-    'echo',
-    'jackal',
-    'mira',
-    'ying',
-    'lesion',
-    'ela',
-    'zofia',
-    'dokkaebi',
-    'vigil',
-    'lion',
-    'finka',
-    'maestro',
-    'alibi',
-    'maverick',
-    'clash',
-    'nomad',
-    'kaid',
-    'gridlock',
-    'mozzie',
-    'nokk',
-    'warden',
-    'amaru',
-    'goyo',
-    'kali',
-    'wamai',
-    'iana',
-    'oryx',
-    'ace',
-    'melusi',
-    'zero',
-    'aruni',
-    'flores',
-    'thunderbird',
-    'osa',
-    'thorn',
-    'azami',
-    'sens',
-    'grim',
-    'solis',
-    'brava',
-    'fenrir',
-    'tubarao',
-    'deimos'
-];
+const AVAILABLE_ICONS = ['ash', 'lion', 'sledge'];
 
 // ============================================
 // STRATEGY STATE MANAGEMENT
@@ -139,7 +66,8 @@ const StrategyState = {
     selectedIconId: null,         // Currently selected icon for placement
     isPlacingIcon: false,         // Whether we're in icon placement mode
     draggedIcon: null,            // Currently dragged icon element
-    dragOffset: { x: 0, y: 0 }    // Offset for smooth dragging
+    dragOffset: { x: 0, y: 0 },   // Offset for smooth dragging
+    dragFromToolbar: false        // True while dragging from toolbar (so we don't trigger click)
 };
 
 // Storage key prefix for localStorage
@@ -198,6 +126,124 @@ function deleteStrategyFromStorage(strategyId) {
     localStorage.removeItem(key);
 }
 
+// ============================================
+// EXPORT / IMPORT / DUPLICATE
+// ============================================
+
+/** Export file prefix so import can validate */
+const EXPORT_FORMAT_VERSION = 1;
+
+/**
+ * Export a strategy as a JSON file (download)
+ * @param {string} strategyId - ID of strategy to export
+ */
+function exportStrategy(strategyId) {
+    const key = STORAGE_KEY_PREFIX + strategyId;
+    const strategy = JSON.parse(localStorage.getItem(key));
+    if (!strategy) {
+        alert('Strategy not found.');
+        return;
+    }
+    const payload = {
+        version: EXPORT_FORMAT_VERSION,
+        exportedAt: Date.now(),
+        strategy
+    };
+    const json = JSON.stringify(payload, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const mapPart = (strategy.mapId || 'map').replace(/[^a-zA-Z0-9-_]/g, '-').replace(/-+/g, '-') || 'map';
+    const floorPart = (strategy.floorId || 'floor').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).replace(/\s+/g, '-') || 'floor';
+    const namePart = (strategy.name || 'strategy').replace(/[^a-zA-Z0-9-_]/g, '-').replace(/-+/g, '-') || 'strategy';
+    a.download = `R6Champs-${mapPart}-${floorPart}-${namePart}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+/**
+ * Validate and normalize an imported strategy object; returns null if invalid
+ * @param {Object} data - Parsed JSON (may be { strategy } or raw strategy)
+ * @returns {Object|null} Strategy object with new id and timestamps, or null
+ */
+function validateAndPrepareImportedStrategy(data) {
+    const strategy = data && data.strategy ? data.strategy : data;
+    if (!strategy || typeof strategy.name !== 'string' || !strategy.mapId || !strategy.floorId) {
+        return null;
+    }
+    if (!Array.isArray(strategy.icons)) strategy.icons = [];
+    const copy = {
+        id: generateStrategyId(),
+        name: strategy.name.trim() || 'Imported strategy',
+        mapId: String(strategy.mapId),
+        floorId: String(strategy.floorId),
+        canvasData: strategy.canvasData != null ? strategy.canvasData : null,
+        icons: strategy.icons.map(icon => ({
+            iconId: String(icon.iconId || ''),
+            x: Number(icon.x) || 0,
+            y: Number(icon.y) || 0
+        })),
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+    };
+    return copy;
+}
+
+/**
+ * Import a strategy from a JSON file and save it to localStorage
+ * @param {File} file - JSON file from file input
+ */
+function importStrategyFromFile(file) {
+    if (!file || !file.name.toLowerCase().endsWith('.json')) {
+        alert('Please select a valid .json file exported from R6Champs.');
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+        try {
+            const data = JSON.parse(reader.result);
+            const strategy = validateAndPrepareImportedStrategy(data);
+            if (!strategy) {
+                alert('Invalid strategy file. It may be from an older version or not an R6Champs export.');
+                return;
+            }
+            saveStrategyToStorage(strategy);
+            renderStrategyList();
+            alert(`Imported "${strategy.name}". It will appear for map "${strategy.mapId}" on floor "${strategy.floorId}".`);
+        } catch (e) {
+            alert('Could not read file. Make sure it is a valid R6Champs strategy JSON.');
+        }
+    };
+    reader.readAsText(file);
+}
+
+/**
+ * Duplicate a strategy (new id, "Copy of ..." name)
+ * @param {string} strategyId - ID of strategy to duplicate
+ */
+function duplicateStrategy(strategyId) {
+    const key = STORAGE_KEY_PREFIX + strategyId;
+    const strategy = JSON.parse(localStorage.getItem(key));
+    if (!strategy) {
+        alert('Strategy not found.');
+        return;
+    }
+    const copy = {
+        id: generateStrategyId(),
+        name: 'Copy of ' + (strategy.name || 'Strategy'),
+        mapId: strategy.mapId,
+        floorId: strategy.floorId,
+        canvasData: strategy.canvasData,
+        icons: Array.isArray(strategy.icons) ? strategy.icons.map(i => ({ ...i })) : [],
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+    };
+    saveStrategyToStorage(copy);
+    renderStrategyList();
+    enterEditMode(copy.id);
+}
+
 /**
  * Generate a unique ID for new strategies
  * @returns {string} Unique identifier
@@ -232,6 +278,10 @@ function initializeStrategySidebar(mapId, floors) {
         <button class="new-strat-btn" id="new-strat-btn">
             <span>+</span> New Strategy
         </button>
+        <div class="sidebar-import-row">
+            <input type="file" id="import-strategy-input" accept=".json" style="display: none;">
+            <button type="button" class="import-strat-btn" id="import-strat-btn">Import</button>
+        </div>
         <div class="strategy-list" id="strategy-list">
             <div class="strategy-list-empty">No strategies saved yet</div>
         </div>
@@ -239,6 +289,18 @@ function initializeStrategySidebar(mapId, floors) {
     
     // Attach event listener to new strategy button
     document.getElementById('new-strat-btn').addEventListener('click', createNewStrategy);
+    const importInput = document.getElementById('import-strategy-input');
+    const importBtn = document.getElementById('import-strat-btn');
+    if (importBtn && importInput) {
+        importBtn.addEventListener('click', () => importInput.click());
+        importInput.addEventListener('change', (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (file) {
+                importStrategyFromFile(file);
+                e.target.value = '';
+            }
+        });
+    }
     
     // Initial render of strategy list
     renderStrategyList();
@@ -293,21 +355,27 @@ function createStrategyListItem(strategy) {
             <span>${dateStr}</span>
         </div>
         <div class="strategy-actions">
-            <button class="strat-action-btn load-btn">Load</button>
             <button class="strat-action-btn edit-btn">Edit</button>
+            <button class="strat-action-btn export-btn" title="Export as JSON">Export</button>
+            <button class="strat-action-btn copy-btn" title="Duplicate strategy">Copy</button>
             <button class="strat-action-btn delete delete-btn">Delete</button>
         </div>
     `;
     
     // Event listeners
-    item.querySelector('.load-btn').addEventListener('click', (e) => {
-        e.stopPropagation();
-        loadStrategy(strategy.id);
-    });
-    
     item.querySelector('.edit-btn').addEventListener('click', (e) => {
         e.stopPropagation();
         enterEditMode(strategy.id);
+    });
+    
+    item.querySelector('.export-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        exportStrategy(strategy.id);
+    });
+    
+    item.querySelector('.copy-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        duplicateStrategy(strategy.id);
     });
     
     item.querySelector('.delete-btn').addEventListener('click', (e) => {
@@ -352,7 +420,7 @@ function createNewStrategy() {
  * Load a strategy onto the map
  * @param {string} strategyId - ID of strategy to load
  */
-function loadStrategy(strategyId) {
+function loadStrategy(strategyId, isForEditing = false) {
     const key = STORAGE_KEY_PREFIX + strategyId;
     const strategy = JSON.parse(localStorage.getItem(key));
     if (!strategy) return;
@@ -380,8 +448,10 @@ function loadStrategy(strategyId) {
     StrategyState.currentStrategyId = strategyId;
     updateActiveStrategyItem(strategyId);
     
-    // Exit edit mode if active
-    exitEditMode();
+    // Exit edit mode if active, unless we are loading for edit
+    if (!isForEditing) {
+        exitEditMode();
+    }
 }
 
 /**
@@ -392,8 +462,8 @@ function enterEditMode(strategyId) {
     StrategyState.isEditMode = true;
     StrategyState.currentStrategyId = strategyId;
     
-    // Load the strategy first
-    loadStrategy(strategyId);
+    // Load the strategy for editing (pass true so loadStrategy doesn't call exitEditMode)
+    loadStrategy(strategyId, true);
     
     // Show edit mode banner
     const banner = document.getElementById('edit-mode-banner');
@@ -526,24 +596,97 @@ function initializeIconToolbar() {
     
     toolbar.innerHTML = '<span class="icon-toolbar-label">Operators:</span>';
     
+    if (AVAILABLE_ICONS.length === 0) {
+        const emptyMsg = document.createElement('span');
+        emptyMsg.className = 'icon-toolbar-empty';
+        emptyMsg.textContent = 'Add PNG files to Images/Icons and list them in strategies.js';
+        toolbar.appendChild(emptyMsg);
+        return;
+    }
+    
     AVAILABLE_ICONS.forEach(iconId => {
         const btn = document.createElement('button');
         btn.className = 'icon-btn';
         btn.dataset.iconId = iconId;
-        btn.title = iconId.charAt(0).toUpperCase() + iconId.slice(1);
+        btn.draggable = true;
+        btn.title = iconId.charAt(0).toUpperCase() + iconId.slice(1) + ' – drag onto map or click then click map';
         
         const img = document.createElement('img');
         img.src = `../Images/Icons/${iconId}.png`;
         img.alt = iconId;
+        img.draggable = false;
         img.onerror = () => {
             // If icon doesn't exist, show placeholder
             btn.innerHTML = `<span style="font-size: 10px; color: #666;">${iconId.substr(0, 3)}</span>`;
         };
         
         btn.appendChild(img);
-        btn.addEventListener('click', () => selectIconForPlacement(iconId));
+        btn.addEventListener('dragstart', (e) => handleIconToolbarDragStart(e, iconId));
+        btn.addEventListener('dragend', () => { StrategyState.dragFromToolbar = false; });
+        btn.addEventListener('click', (e) => {
+            if (StrategyState.dragFromToolbar) return;
+            selectIconForPlacement(iconId);
+        });
         toolbar.appendChild(btn);
     });
+}
+
+/**
+ * Handle drag start from icon toolbar – set data for drop on map
+ */
+function handleIconToolbarDragStart(e, iconId) {
+    if (!StrategyState.isEditMode) {
+        e.preventDefault();
+        return;
+    }
+    StrategyState.dragFromToolbar = true;
+    e.dataTransfer.setData('text/plain', iconId);
+    e.dataTransfer.effectAllowed = 'copy';
+    const img = e.target.querySelector('img');
+    if (img && img.complete) {
+        e.dataTransfer.setDragImage(img, img.width / 2, img.height / 2);
+    }
+}
+
+/**
+ * Handle dragover on map container – allow drop and show feedback
+ */
+function handleMapDragOver(e) {
+    if (!StrategyState.isEditMode) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    const container = e.currentTarget;
+    if (container && !container.classList.contains('map-drop-target')) {
+        container.classList.add('map-drop-target');
+    }
+}
+
+/**
+ * Handle drag leave – remove drop target styling when leaving map area
+ */
+function handleMapDragLeave(e) {
+    const container = e.currentTarget;
+    if (container && !container.contains(e.relatedTarget)) {
+        container.classList.remove('map-drop-target');
+    }
+}
+
+/**
+ * Handle drop on map – place icon at drop position
+ */
+function handleMapDrop(e) {
+    e.preventDefault();
+    const container = e.currentTarget;
+    container.classList.remove('map-drop-target');
+    if (!StrategyState.isEditMode) return;
+    const iconId = e.dataTransfer.getData('text/plain');
+    if (!iconId) return;
+    // Use zoom wrapper rect if present so drop position matches visible content
+    const wrapper = document.getElementById('map-zoom-pan-wrapper') || container;
+    const rect = wrapper.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    placeIconOnMap(iconId, x, y);
 }
 
 /**
@@ -585,6 +728,8 @@ function updateIconToolbarSelection() {
  */
 function placeIconOnMap(iconId, x, y) {
     const container = document.getElementById('map-image-container');
+    const zoomWrapper = document.getElementById('map-zoom-pan-wrapper');
+    const iconParent = zoomWrapper || container;
     if (!container) return null;
     
     const iconWrapper = document.createElement('div');
@@ -620,7 +765,7 @@ function placeIconOnMap(iconId, x, y) {
         makeIconDraggable(iconWrapper);
     }
     
-    container.appendChild(iconWrapper);
+    iconParent.appendChild(iconWrapper);
     StrategyState.placedIcons.push(iconWrapper);
     
     return iconWrapper;
@@ -649,9 +794,10 @@ function makeIconDraggable(iconElement) {
     
     document.addEventListener('mousemove', (e) => {
         if (!isDragging || !StrategyState.draggedIcon) return;
-        
+
         const container = document.getElementById('map-image-container');
-        const containerRect = container.getBoundingClientRect();
+        const zoomWrapper = document.getElementById('map-zoom-pan-wrapper') || container;
+        const containerRect = zoomWrapper.getBoundingClientRect();
         
         let x = e.clientX - containerRect.left - StrategyState.dragOffset.x + 16;
         let y = e.clientY - containerRect.top - StrategyState.dragOffset.y + 16;
@@ -686,11 +832,12 @@ function handleMapClickForIcon(e) {
     }
     
     const container = document.getElementById('map-image-container');
-    const rect = container.getBoundingClientRect();
-    
+    const wrapper = document.getElementById('map-zoom-pan-wrapper') || container;
+    const rect = wrapper.getBoundingClientRect();
+
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
-    
+
     placeIconOnMap(StrategyState.selectedIconId, x, y);
     
     // Reset placement mode
@@ -779,10 +926,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize icon toolbar
     initializeIconToolbar();
     
-    // Attach map click handler for icon placement
+    // Attach map click and drag-drop handlers for icon placement
     const mapContainer = document.getElementById('map-image-container');
     if (mapContainer) {
         mapContainer.addEventListener('click', handleMapClickForIcon);
+        mapContainer.addEventListener('dragover', handleMapDragOver);
+        mapContainer.addEventListener('dragleave', handleMapDragLeave);
+        mapContainer.addEventListener('drop', handleMapDrop);
     }
     
     // Save strategy button

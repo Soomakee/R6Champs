@@ -25,7 +25,8 @@ const DrawingState = {
     lastY: 0,
     currentFloorId: null,
     canvasContexts: new Map(), // Store canvas contexts per floor
-    canvasHistory: new Map()   // Store canvas history per floor
+    canvasHistory: new Map(),  // Store canvas history per floor
+    drawModeEnabled: false    // Must be toggled on before drawing (prevents accidental draw on scroll)
 };
 
 // ============================================
@@ -38,15 +39,17 @@ const DrawingState = {
  */
 function initializeDrawingCanvas(floorId) {
     const container = document.getElementById('map-image-container');
+    const zoomWrapper = document.getElementById('map-zoom-pan-wrapper');
+    const canvasParent = zoomWrapper || container;
     if (!container) return;
-    
+
     // Remove any existing canvas
     const existingCanvas = document.getElementById('drawing-canvas');
     if (existingCanvas) {
         existingCanvas.remove();
     }
-    
-    // Get the active image dimensions
+
+    // Get the active image dimensions (may be inside zoom wrapper)
     const activeImage = container.querySelector('.floor-image.active');
     if (!activeImage) return;
     
@@ -68,8 +71,8 @@ function initializeDrawingCanvas(floorId) {
         canvas.style.left = `${rect.left - containerRect.left}px`;
         canvas.style.top = `${rect.top - containerRect.top}px`;
         
-        // Insert canvas into container
-        container.appendChild(canvas);
+        // Insert canvas into zoom wrapper (or container) so it scales with the blueprint
+        canvasParent.appendChild(canvas);
         
         // Get context and set up drawing
         const ctx = canvas.getContext('2d');
@@ -87,6 +90,8 @@ function initializeDrawingCanvas(floorId) {
         
         // Attach event listeners
         attachDrawingEvents(canvas);
+        // Apply current draw mode (pointer-events so scroll works when draw mode off)
+        updateCanvasDrawMode();
     };
     
     if (activeImage.complete) {
@@ -158,10 +163,12 @@ function getCanvasCoordinates(canvas, event) {
     const rect = canvas.getBoundingClientRect();
     const clientX = event.clientX || (event.touches && event.touches[0].clientX);
     const clientY = event.clientY || (event.touches && event.touches[0].clientY);
-    
+    // Convert to canvas logical coords when zoomed (wrapper scale)
+    const scaleX = rect.width > 0 ? canvas.width / rect.width : 1;
+    const scaleY = rect.height > 0 ? canvas.height / rect.height : 1;
     return {
-        x: clientX - rect.left,
-        y: clientY - rect.top
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top) * scaleY
     };
 }
 
@@ -170,6 +177,7 @@ function getCanvasCoordinates(canvas, event) {
  * @param {MouseEvent|TouchEvent} e - Event object
  */
 function handleDrawStart(e) {
+    if (!DrawingState.drawModeEnabled) return;
     e.preventDefault();
     const canvas = document.getElementById('drawing-canvas');
     if (!canvas) return;
@@ -188,6 +196,7 @@ function handleDrawStart(e) {
  * @param {TouchEvent} e - Touch event object
  */
 function handleTouchStart(e) {
+    if (!DrawingState.drawModeEnabled) return;
     e.preventDefault();
     handleDrawStart(e);
 }
@@ -261,8 +270,53 @@ function draw(x1, y1, x2, y2) {
 }
 
 // ============================================
+// DRAW MODE TOGGLE (required before drawing; prevents scroll-from-drawing on mobile)
+// ============================================
+
+/**
+ * Enable or disable draw mode. When off, canvas does not capture pointer/touch so scrolling works.
+ */
+function setDrawModeEnabled(enabled) {
+    DrawingState.drawModeEnabled = !!enabled;
+    updateCanvasDrawMode();
+    updateToolButtonStates();
+}
+
+/**
+ * Update canvas pointer-events and cursor based on draw mode.
+ * When off: pointer-events none so touch/scroll passes through.
+ */
+function updateCanvasDrawMode() {
+    const canvas = document.getElementById('drawing-canvas');
+    if (!canvas) return;
+    if (DrawingState.drawModeEnabled) {
+        canvas.style.pointerEvents = 'auto';
+        canvas.style.cursor = DrawingState.currentTool === 'eraser' ? 'cell' : 'crosshair';
+    } else {
+        canvas.style.pointerEvents = 'none';
+        canvas.style.cursor = 'default';
+    }
+}
+
+// ============================================
 // TOOL CONTROLS
 // ============================================
+
+/**
+ * Update pencil/eraser button active state (active only when draw mode is on and tool matches).
+ */
+function updateToolButtonStates() {
+    const pencilBtn = document.getElementById('tool-pencil');
+    const eraserBtn = document.getElementById('tool-eraser');
+    const on = DrawingState.drawModeEnabled;
+    if (pencilBtn) {
+        pencilBtn.classList.toggle('active', on && DrawingState.currentTool === 'pencil');
+        pencilBtn.setAttribute('title', on && DrawingState.currentTool === 'pencil' ? 'Pencil – tap again to disable drawing (P)' : 'Pencil – tap to enable drawing (P)');
+    }
+    if (eraserBtn) {
+        eraserBtn.classList.toggle('active', on && DrawingState.currentTool === 'eraser');
+    }
+}
 
 /**
  * Set the current drawing tool
@@ -270,22 +324,9 @@ function draw(x1, y1, x2, y2) {
  */
 function setTool(tool) {
     DrawingState.currentTool = tool;
-    
-    // Update UI
-    const pencilBtn = document.getElementById('tool-pencil');
-    const eraserBtn = document.getElementById('tool-eraser');
-    
-    if (pencilBtn) {
-        pencilBtn.classList.toggle('active', tool === 'pencil');
-    }
-    if (eraserBtn) {
-        eraserBtn.classList.toggle('active', tool === 'eraser');
-    }
-    
-    // Update cursor
-    const canvas = document.getElementById('drawing-canvas');
-    if (canvas) {
-        canvas.style.cursor = tool === 'eraser' ? 'cell' : 'crosshair';
+    updateToolButtonStates();
+    if (DrawingState.drawModeEnabled) {
+        updateCanvasDrawMode();
     }
 }
 
@@ -346,16 +387,28 @@ function clearCanvas() {
  * Initialize the drawing toolbar
  */
 function initializeDrawingToolbar() {
-    // Pencil button
+    // Pencil button: toggles draw mode (off→on + pencil, on+pencil→off) or selects pencil
     const pencilBtn = document.getElementById('tool-pencil');
     if (pencilBtn) {
-        pencilBtn.addEventListener('click', () => setTool('pencil'));
+        pencilBtn.addEventListener('click', () => {
+            if (!DrawingState.drawModeEnabled) {
+                setDrawModeEnabled(true);
+                setTool('pencil');
+            } else if (DrawingState.currentTool === 'pencil') {
+                setDrawModeEnabled(false);
+            } else {
+                setTool('pencil');
+            }
+        });
     }
     
-    // Eraser button
+    // Eraser button: turns draw mode on if off, then selects eraser
     const eraserBtn = document.getElementById('tool-eraser');
     if (eraserBtn) {
-        eraserBtn.addEventListener('click', () => setTool('eraser'));
+        eraserBtn.addEventListener('click', () => {
+            if (!DrawingState.drawModeEnabled) setDrawModeEnabled(true);
+            setTool('eraser');
+        });
     }
     
     // Brush size slider
@@ -380,8 +433,9 @@ function initializeDrawingToolbar() {
         clearBtn.addEventListener('click', clearCanvas);
     }
     
-    // Set initial tool
+    // Set initial tool and tool button states (draw mode off by default)
     setTool('pencil');
+    updateToolButtonStates();
     updateBrushPreview();
 }
 
@@ -390,12 +444,20 @@ function initializeDrawingToolbar() {
 // ============================================
 
 document.addEventListener('keydown', (e) => {
-    // P for pencil
+    // P for pencil (same behavior as pencil button: toggle draw mode or select pencil)
     if (e.key === 'p' || e.key === 'P') {
-        setTool('pencil');
+        if (!DrawingState.drawModeEnabled) {
+            setDrawModeEnabled(true);
+            setTool('pencil');
+        } else if (DrawingState.currentTool === 'pencil') {
+            setDrawModeEnabled(false);
+        } else {
+            setTool('pencil');
+        }
     }
-    // E for eraser
+    // E for eraser (turn draw mode on if needed, then select eraser)
     else if (e.key === 'e' || e.key === 'E') {
+        if (!DrawingState.drawModeEnabled) setDrawModeEnabled(true);
         setTool('eraser');
     }
     // Delete or C for clear
@@ -435,6 +497,7 @@ window.DrawingTool = {
     setTool,
     setBrushSize,
     setBrushColor,
+    setDrawModeEnabled,
     clearCanvas,
     initializeDrawingCanvas,
     getState: () => ({ ...DrawingState })

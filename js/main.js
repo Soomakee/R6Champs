@@ -22,13 +22,15 @@
 function initializeFloorTabs(mapName, floors) {
     const tabContainer = document.getElementById('floor-tabs');
     const imageContainer = document.getElementById('map-image-container');
-    
+    const zoomWrapper = document.getElementById('map-zoom-pan-wrapper');
+    const imageInsertTarget = zoomWrapper || imageContainer;
+
     if (!tabContainer || !imageContainer) return;
-    
+
     // Store floor data globally for this page
     window.currentMapFloors = floors;
     window.currentMapName = mapName;
-    
+
     // Create tab buttons
     floors.forEach((floor, index) => {
         const tabBtn = document.createElement('button');
@@ -38,8 +40,8 @@ function initializeFloorTabs(mapName, floors) {
         tabBtn.addEventListener('click', () => switchFloor(floor.id));
         tabContainer.appendChild(tabBtn);
     });
-    
-    // Create image elements for each floor
+
+    // Create image elements for each floor (inside zoom wrapper when present)
     floors.forEach((floor, index) => {
         const img = document.createElement('img');
         img.id = `floor-image-${floor.id}`;
@@ -47,7 +49,7 @@ function initializeFloorTabs(mapName, floors) {
         img.src = floor.image;
         img.alt = `${mapName} - ${floor.label}`;
         img.dataset.floorId = floor.id;
-        imageContainer.appendChild(img);
+        imageInsertTarget.appendChild(img);
     });
     
     // Initialize canvas for the first floor
@@ -117,11 +119,59 @@ function goBack() {
 }
 
 // ============================================
+// MAP CONFIG – single source of truth
+// ============================================
+
+/**
+ * All maps in the game. Add new maps here when they release.
+ * Fortress is placeholder until map/blueprints are available.
+ */
+const ALL_MAPS = [
+    { id: 'Bank', name: 'Bank', image: 'Images/MapCards/Bank.webp', meta: 'Financial District' },
+    { id: 'Border', name: 'Border', image: 'Images/MapCards/Border.webp', meta: 'Border Crossing' },
+    { id: 'Chalet', name: 'Chalet', image: 'Images/MapCards/Chalet.webp', meta: 'Mountain Retreat' },
+    { id: 'Clubhouse', name: 'Clubhouse', image: 'Images/MapCards/Clubhouse.webp', meta: 'Biker Club' },
+    { id: 'Coastline', name: 'Coastline', image: 'Images/MapCards/Coastline.webp', meta: 'Ibiza Resort' },
+    { id: 'Consulate', name: 'Consulate', image: 'Images/MapCards/Consulate.webp', meta: 'French Embassy' },
+    { id: 'Emerald Plains', name: 'Emerald Plains', image: 'Images/MapCards/Emerald Plains.webp', meta: 'Forest' },
+    { id: 'Fortress', name: 'Fortress', image: 'Images/MapCards/Bank.webp', meta: 'Coming soon' },
+    { id: 'Kafe', name: 'Kafe', image: 'Images/MapCards/Kafe Dostoyevsky.webp', meta: 'Russian Cafe' },
+    { id: 'Kanal', name: 'Kanal', image: 'Images/MapCards/Kanal.webp', meta: 'Industrial Harbor' },
+    { id: 'Lair', name: 'Lair', image: 'Images/MapCards/Lair.webp', meta: 'Underground Base' },
+    { id: 'Nighthaven', name: 'Nighthaven', image: 'Images/MapCards/Nighthaven Labs.webp', meta: 'Labs' },
+    { id: 'Oregon', name: 'Oregon', image: 'Images/MapCards/Oregon.webp', meta: 'Country House' },
+    { id: 'Outback', name: 'Outback', image: 'Images/MapCards/Outback.webp', meta: 'Australian Pub' },
+    { id: 'Skyscraper', name: 'Skyscraper', image: 'Images/MapCards/Skyscraper.webp', meta: 'Skyscraper' },
+    { id: 'Theme Park', name: 'Theme Park', image: 'Images/MapCards/Theme Park.webp', meta: 'Amusement Park' },
+    { id: 'Villa', name: 'Villa', image: 'Images/MapCards/Villa.webp', meta: 'Italian Estate' }
+];
+
+/**
+ * Map IDs currently in the ranked rotation (alphabetical). Homepage shows these by default.
+ * When Ubisoft changes the ranked pool: add IDs to include a map, remove IDs to drop it.
+ * Use exact id from ALL_MAPS (e.g. 'Emerald Plains', 'Theme Park').
+ */
+const RANKED_ROTATION_IDS = [
+    'Bank', 'Border', 'Chalet', 'Coastline', 'Consulate',
+    'Fortress', 'Kafe', 'Kanal', 'Lair', 'Nighthaven', 'Oregon', 'Outback',
+    'Skyscraper', 'Theme Park', 'Villa'
+];
+// ============================================
 // MAP CARD INITIALIZATION
 // ============================================
 
 /**
- * Initialize map cards on the homepage
+ * Get maps to display based on filter. Ranked only = default; showAll = every map.
+ * @param {boolean} showAll - If true, return ALL_MAPS; otherwise only ranked rotation
+ * @returns {Array} Map objects to render
+ */
+function getMapsForView(showAll) {
+    if (showAll) return [...ALL_MAPS];
+    return ALL_MAPS.filter(m => RANKED_ROTATION_IDS.includes(m.id));
+}
+
+/**
+ * Initialize map cards on the homepage (appends to existing grid).
  * @param {Array} maps - Array of map objects with name and image properties
  */
 function initializeMapCards(maps) {
@@ -132,6 +182,17 @@ function initializeMapCards(maps) {
         const card = createMapCard(map);
         gridContainer.appendChild(card);
     });
+}
+
+/**
+ * Re-render the homepage map grid with the given filter.
+ * @param {boolean} showAll - If true, show all maps; if false, ranked rotation only
+ */
+function renderMapGrid(showAll) {
+    const gridContainer = document.getElementById('map-grid');
+    if (!gridContainer) return;
+    gridContainer.innerHTML = '';
+    initializeMapCards(getMapsForView(showAll));
 }
 
 /**
@@ -223,30 +284,32 @@ function getCurrentFloorId() {
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    // Check if we're on the homepage
+    // Homepage: map grid + ranked/all filter
     const mapGrid = document.getElementById('map-grid');
     if (mapGrid) {
-        // Define all 16 maps for the homepage
-        const maps = [
-            { id: 'Bank', name: 'Bank', image: 'Images/MapCards/Bank.webp', meta: 'Financial District' },
-            { id: 'Border', name: 'Border', image: 'Images/MapCards/Border.webp', meta: 'Border Crossing' },
-            { id: 'Chalet', name: 'Chalet', image: 'Images/MapCards/Chalet.webp', meta: 'Mountain Retreat' },
-            { id: 'Clubhouse', name: 'Clubhouse', image: 'Images/MapCards/Clubhouse.webp', meta: 'Biker Club' },
-            { id: 'Coastline', name: 'Coastline', image: 'Images/MapCards/Coastline.webp', meta: 'Ibiza Resort' },
-            { id: 'Consulate', name: 'Consulate', image: 'Images/MapCards/Consulate.webp', meta: 'French Embassy' },
-            { id: 'Emerald Plains', name: 'Emerald Plains', image: 'Images/MapCards/Emerald Plains.webp', meta: 'Forest' },
-            { id: 'Kafe', name: 'Kafe', image: 'Images/MapCards/Kafe Dostoyevsky.webp', meta: 'Russian Cafe' },
-            { id: 'Kanal', name: 'Kanal', image: 'Images/MapCards/Kanal.webp', meta: 'Industrial Harbor' },
-            { id: 'Lair', name: 'Lair', image: 'Images/MapCards/Lair.webp', meta: 'Underground Base' },
-            { id: 'Nighthaven', name: 'Nighthaven', image: 'Images/MapCards/Nighthaven Labs.webp', meta: 'French Embassy' },
-            { id: 'Oregon', name: 'Oregon', image: 'Images/MapCards/Oregon.webp', meta: 'Country House' },
-            { id: 'Outback', name: 'Outback', image: 'Images/MapCards/Outback.webp', meta: 'Australian Pub' },
-            { id: 'Skyscraper', name: 'Skyscraper', image: 'Images/MapCards/Skyscraper.webp', meta: 'Skyscraper' },
-            { id: 'Theme Park', name: 'Theme Park', image: 'Images/MapCards/Theme Park.webp', meta: 'Amusement Park' },
-            { id: 'Villa', name: 'Villa', image: 'Images/MapCards/Villa.webp', meta: 'Italian Estate' }
-        ];
-        
-        initializeMapCards(maps);
+        let showAllMaps = false;
+        renderMapGrid(showAllMaps);
+
+        const filterBtn = document.getElementById('map-filter-btn');
+        const filterLabel = document.getElementById('map-filter-label');
+        const filterCaption = document.getElementById('map-filter-caption-text');
+        const pageTitle = document.getElementById('map-page-title');
+        if (filterBtn && filterLabel && filterCaption) {
+            const updateTitle = () => {
+                if (pageTitle) {
+                    pageTitle.textContent = showAllMaps ? 'All Maps' : 'Ranked Rotation';
+                }
+            };
+            updateTitle();
+            filterBtn.addEventListener('click', () => {
+                showAllMaps = !showAllMaps;
+                renderMapGrid(showAllMaps);
+                filterCaption.textContent = showAllMaps ? 'All maps' : 'Ranked rotation';
+                filterLabel.textContent = showAllMaps ? 'Show ranked only' : 'Show all maps';
+                filterBtn.setAttribute('aria-pressed', showAllMaps);
+                updateTitle();
+            });
+        }
     }
     
     // Check if we're on a map page
