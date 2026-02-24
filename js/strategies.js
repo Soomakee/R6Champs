@@ -126,6 +126,124 @@ function deleteStrategyFromStorage(strategyId) {
     localStorage.removeItem(key);
 }
 
+// ============================================
+// EXPORT / IMPORT / DUPLICATE
+// ============================================
+
+/** Export file prefix so import can validate */
+const EXPORT_FORMAT_VERSION = 1;
+
+/**
+ * Export a strategy as a JSON file (download)
+ * @param {string} strategyId - ID of strategy to export
+ */
+function exportStrategy(strategyId) {
+    const key = STORAGE_KEY_PREFIX + strategyId;
+    const strategy = JSON.parse(localStorage.getItem(key));
+    if (!strategy) {
+        alert('Strategy not found.');
+        return;
+    }
+    const payload = {
+        version: EXPORT_FORMAT_VERSION,
+        exportedAt: Date.now(),
+        strategy
+    };
+    const json = JSON.stringify(payload, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const mapPart = (strategy.mapId || 'map').replace(/[^a-zA-Z0-9-_]/g, '-').replace(/-+/g, '-') || 'map';
+    const floorPart = (strategy.floorId || 'floor').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).replace(/\s+/g, '-') || 'floor';
+    const namePart = (strategy.name || 'strategy').replace(/[^a-zA-Z0-9-_]/g, '-').replace(/-+/g, '-') || 'strategy';
+    a.download = `R6Champs-${mapPart}-${floorPart}-${namePart}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+/**
+ * Validate and normalize an imported strategy object; returns null if invalid
+ * @param {Object} data - Parsed JSON (may be { strategy } or raw strategy)
+ * @returns {Object|null} Strategy object with new id and timestamps, or null
+ */
+function validateAndPrepareImportedStrategy(data) {
+    const strategy = data && data.strategy ? data.strategy : data;
+    if (!strategy || typeof strategy.name !== 'string' || !strategy.mapId || !strategy.floorId) {
+        return null;
+    }
+    if (!Array.isArray(strategy.icons)) strategy.icons = [];
+    const copy = {
+        id: generateStrategyId(),
+        name: strategy.name.trim() || 'Imported strategy',
+        mapId: String(strategy.mapId),
+        floorId: String(strategy.floorId),
+        canvasData: strategy.canvasData != null ? strategy.canvasData : null,
+        icons: strategy.icons.map(icon => ({
+            iconId: String(icon.iconId || ''),
+            x: Number(icon.x) || 0,
+            y: Number(icon.y) || 0
+        })),
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+    };
+    return copy;
+}
+
+/**
+ * Import a strategy from a JSON file and save it to localStorage
+ * @param {File} file - JSON file from file input
+ */
+function importStrategyFromFile(file) {
+    if (!file || !file.name.toLowerCase().endsWith('.json')) {
+        alert('Please select a valid .json file exported from R6Champs.');
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+        try {
+            const data = JSON.parse(reader.result);
+            const strategy = validateAndPrepareImportedStrategy(data);
+            if (!strategy) {
+                alert('Invalid strategy file. It may be from an older version or not an R6Champs export.');
+                return;
+            }
+            saveStrategyToStorage(strategy);
+            renderStrategyList();
+            alert(`Imported "${strategy.name}". It will appear for map "${strategy.mapId}" on floor "${strategy.floorId}".`);
+        } catch (e) {
+            alert('Could not read file. Make sure it is a valid R6Champs strategy JSON.');
+        }
+    };
+    reader.readAsText(file);
+}
+
+/**
+ * Duplicate a strategy (new id, "Copy of ..." name)
+ * @param {string} strategyId - ID of strategy to duplicate
+ */
+function duplicateStrategy(strategyId) {
+    const key = STORAGE_KEY_PREFIX + strategyId;
+    const strategy = JSON.parse(localStorage.getItem(key));
+    if (!strategy) {
+        alert('Strategy not found.');
+        return;
+    }
+    const copy = {
+        id: generateStrategyId(),
+        name: 'Copy of ' + (strategy.name || 'Strategy'),
+        mapId: strategy.mapId,
+        floorId: strategy.floorId,
+        canvasData: strategy.canvasData,
+        icons: Array.isArray(strategy.icons) ? strategy.icons.map(i => ({ ...i })) : [],
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+    };
+    saveStrategyToStorage(copy);
+    renderStrategyList();
+    enterEditMode(copy.id);
+}
+
 /**
  * Generate a unique ID for new strategies
  * @returns {string} Unique identifier
@@ -160,6 +278,10 @@ function initializeStrategySidebar(mapId, floors) {
         <button class="new-strat-btn" id="new-strat-btn">
             <span>+</span> New Strategy
         </button>
+        <div class="sidebar-import-row">
+            <input type="file" id="import-strategy-input" accept=".json" style="display: none;">
+            <button type="button" class="import-strat-btn" id="import-strat-btn">Import</button>
+        </div>
         <div class="strategy-list" id="strategy-list">
             <div class="strategy-list-empty">No strategies saved yet</div>
         </div>
@@ -167,6 +289,18 @@ function initializeStrategySidebar(mapId, floors) {
     
     // Attach event listener to new strategy button
     document.getElementById('new-strat-btn').addEventListener('click', createNewStrategy);
+    const importInput = document.getElementById('import-strategy-input');
+    const importBtn = document.getElementById('import-strat-btn');
+    if (importBtn && importInput) {
+        importBtn.addEventListener('click', () => importInput.click());
+        importInput.addEventListener('change', (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (file) {
+                importStrategyFromFile(file);
+                e.target.value = '';
+            }
+        });
+    }
     
     // Initial render of strategy list
     renderStrategyList();
@@ -221,21 +355,27 @@ function createStrategyListItem(strategy) {
             <span>${dateStr}</span>
         </div>
         <div class="strategy-actions">
-            <button class="strat-action-btn load-btn">Load</button>
             <button class="strat-action-btn edit-btn">Edit</button>
+            <button class="strat-action-btn export-btn" title="Export as JSON">Export</button>
+            <button class="strat-action-btn copy-btn" title="Duplicate strategy">Copy</button>
             <button class="strat-action-btn delete delete-btn">Delete</button>
         </div>
     `;
     
     // Event listeners
-    item.querySelector('.load-btn').addEventListener('click', (e) => {
-        e.stopPropagation();
-        loadStrategy(strategy.id);
-    });
-    
     item.querySelector('.edit-btn').addEventListener('click', (e) => {
         e.stopPropagation();
         enterEditMode(strategy.id);
+    });
+    
+    item.querySelector('.export-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        exportStrategy(strategy.id);
+    });
+    
+    item.querySelector('.copy-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        duplicateStrategy(strategy.id);
     });
     
     item.querySelector('.delete-btn').addEventListener('click', (e) => {
@@ -541,7 +681,9 @@ function handleMapDrop(e) {
     if (!StrategyState.isEditMode) return;
     const iconId = e.dataTransfer.getData('text/plain');
     if (!iconId) return;
-    const rect = container.getBoundingClientRect();
+    // Use zoom wrapper rect if present so drop position matches visible content
+    const wrapper = document.getElementById('map-zoom-pan-wrapper') || container;
+    const rect = wrapper.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
     placeIconOnMap(iconId, x, y);
@@ -586,6 +728,8 @@ function updateIconToolbarSelection() {
  */
 function placeIconOnMap(iconId, x, y) {
     const container = document.getElementById('map-image-container');
+    const zoomWrapper = document.getElementById('map-zoom-pan-wrapper');
+    const iconParent = zoomWrapper || container;
     if (!container) return null;
     
     const iconWrapper = document.createElement('div');
@@ -621,7 +765,7 @@ function placeIconOnMap(iconId, x, y) {
         makeIconDraggable(iconWrapper);
     }
     
-    container.appendChild(iconWrapper);
+    iconParent.appendChild(iconWrapper);
     StrategyState.placedIcons.push(iconWrapper);
     
     return iconWrapper;
@@ -650,9 +794,10 @@ function makeIconDraggable(iconElement) {
     
     document.addEventListener('mousemove', (e) => {
         if (!isDragging || !StrategyState.draggedIcon) return;
-        
+
         const container = document.getElementById('map-image-container');
-        const containerRect = container.getBoundingClientRect();
+        const zoomWrapper = document.getElementById('map-zoom-pan-wrapper') || container;
+        const containerRect = zoomWrapper.getBoundingClientRect();
         
         let x = e.clientX - containerRect.left - StrategyState.dragOffset.x + 16;
         let y = e.clientY - containerRect.top - StrategyState.dragOffset.y + 16;
@@ -687,11 +832,12 @@ function handleMapClickForIcon(e) {
     }
     
     const container = document.getElementById('map-image-container');
-    const rect = container.getBoundingClientRect();
-    
+    const wrapper = document.getElementById('map-zoom-pan-wrapper') || container;
+    const rect = wrapper.getBoundingClientRect();
+
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
-    
+
     placeIconOnMap(StrategyState.selectedIconId, x, y);
     
     // Reset placement mode

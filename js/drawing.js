@@ -39,15 +39,17 @@ const DrawingState = {
  */
 function initializeDrawingCanvas(floorId) {
     const container = document.getElementById('map-image-container');
+    const zoomWrapper = document.getElementById('map-zoom-pan-wrapper');
+    const canvasParent = zoomWrapper || container;
     if (!container) return;
-    
+
     // Remove any existing canvas
     const existingCanvas = document.getElementById('drawing-canvas');
     if (existingCanvas) {
         existingCanvas.remove();
     }
-    
-    // Get the active image dimensions
+
+    // Get the active image dimensions (may be inside zoom wrapper)
     const activeImage = container.querySelector('.floor-image.active');
     if (!activeImage) return;
     
@@ -69,8 +71,8 @@ function initializeDrawingCanvas(floorId) {
         canvas.style.left = `${rect.left - containerRect.left}px`;
         canvas.style.top = `${rect.top - containerRect.top}px`;
         
-        // Insert canvas into container
-        container.appendChild(canvas);
+        // Insert canvas into zoom wrapper (or container) so it scales with the blueprint
+        canvasParent.appendChild(canvas);
         
         // Get context and set up drawing
         const ctx = canvas.getContext('2d');
@@ -161,10 +163,12 @@ function getCanvasCoordinates(canvas, event) {
     const rect = canvas.getBoundingClientRect();
     const clientX = event.clientX || (event.touches && event.touches[0].clientX);
     const clientY = event.clientY || (event.touches && event.touches[0].clientY);
-    
+    // Convert to canvas logical coords when zoomed (wrapper scale)
+    const scaleX = rect.width > 0 ? canvas.width / rect.width : 1;
+    const scaleY = rect.height > 0 ? canvas.height / rect.height : 1;
     return {
-        x: clientX - rect.left,
-        y: clientY - rect.top
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top) * scaleY
     };
 }
 

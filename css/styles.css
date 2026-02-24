@@ -443,6 +443,82 @@ body {
     min-height: 500px;
     max-height: 800px;
     background-color: var(--bg-secondary);
+    overflow: hidden;
+}
+
+/* Zoom/Pan wrapper - scaled content lives here */
+.map-zoom-pan-wrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    transform-origin: center center;
+    transition: transform 0.15s ease-out;
+    will-change: transform;
+}
+
+/* Zoom controls overlay - cross-browser consistent */
+.zoom-controls {
+    position: absolute;
+    bottom: 0.5rem;
+    right: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    z-index: 20;
+    padding: 0.35rem;
+    background: rgba(10, 10, 10, 0.85);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.zoom-btn {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0;
+    margin: 0;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    background: linear-gradient(145deg, var(--bg-card) 0%, var(--bg-tertiary) 100%);
+    background-color: var(--bg-card);
+    color: var(--text-primary);
+    font-size: inherit;
+    cursor: pointer;
+    transition: border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    outline: none;
+    font-family: inherit;
+}
+
+.zoom-btn::-moz-focus-inner {
+    border: 0;
+    padding: 0;
+}
+
+.zoom-btn:hover {
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+    box-shadow: 0 0 12px var(--accent-glow);
+}
+
+.zoom-btn:active {
+    transform: scale(0.95);
+}
+
+.zoom-btn svg {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+    pointer-events: none;
 }
 
 #map-image-container.map-drop-target {
@@ -1236,6 +1312,25 @@ body {
     box-shadow: 0 4px 15px var(--accent-glow);
 }
 
+.sidebar-import-row {
+    padding: 0 1rem 0.5rem;
+}
+.import-strat-btn {
+    width: 100%;
+    padding: 0.5rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.import-strat-btn:hover {
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+}
+
 /* Strategy List */
 .strategy-list {
     flex: 1;
@@ -1313,7 +1408,8 @@ body {
 /* Strategy Actions */
 .strategy-actions {
     display: flex;
-    gap: 0.5rem;
+    flex-wrap: wrap;
+    gap: 0.35rem;
     margin-top: 0.5rem;
     padding-top: 0.5rem;
     border-top: 1px solid var(--border-color);

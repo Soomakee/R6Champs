@@ -22,13 +22,15 @@
 function initializeFloorTabs(mapName, floors) {
     const tabContainer = document.getElementById('floor-tabs');
     const imageContainer = document.getElementById('map-image-container');
-    
+    const zoomWrapper = document.getElementById('map-zoom-pan-wrapper');
+    const imageInsertTarget = zoomWrapper || imageContainer;
+
     if (!tabContainer || !imageContainer) return;
-    
+
     // Store floor data globally for this page
     window.currentMapFloors = floors;
     window.currentMapName = mapName;
-    
+
     // Create tab buttons
     floors.forEach((floor, index) => {
         const tabBtn = document.createElement('button');
@@ -38,8 +40,8 @@ function initializeFloorTabs(mapName, floors) {
         tabBtn.addEventListener('click', () => switchFloor(floor.id));
         tabContainer.appendChild(tabBtn);
     });
-    
-    // Create image elements for each floor
+
+    // Create image elements for each floor (inside zoom wrapper when present)
     floors.forEach((floor, index) => {
         const img = document.createElement('img');
         img.id = `floor-image-${floor.id}`;
@@ -47,7 +49,7 @@ function initializeFloorTabs(mapName, floors) {
         img.src = floor.image;
         img.alt = `${mapName} - ${floor.label}`;
         img.dataset.floorId = floor.id;
-        imageContainer.appendChild(img);
+        imageInsertTarget.appendChild(img);
     });
     
     // Initialize canvas for the first floor
@@ -154,7 +156,6 @@ const RANKED_ROTATION_IDS = [
     'Fortress', 'Kafe', 'Kanal', 'Lair', 'Nighthaven', 'Oregon', 'Outback',
     'Skyscraper', 'Theme Park', 'Villa'
 ];
-
 // ============================================
 // MAP CARD INITIALIZATION
 // ============================================
