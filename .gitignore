@@ -1,0 +1,12 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Freebuff workspace
+.freebuff/
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
