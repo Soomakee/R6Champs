@@ -469,6 +469,90 @@ h2 {
   border: 1px solid var(--border);
   border-radius: 16px;
   overflow: hidden;
+  position: relative;
+}
+
+.blueprint-zoom {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: rgba(16, 16, 21, 0.82);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  user-select: none;
+}
+
+.blueprint-zoom button {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.blueprint-zoom button:hover:not(:disabled) {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.blueprint-zoom button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.blueprint-zoom .blueprint-zoom-value {
+  width: auto;
+  min-width: 38px;
+  padding: 0 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.blueprint-zoom .blueprint-zoom-value:hover {
+  color: var(--accent);
+}
+
+.blueprint-zoom span {
+  min-width: 38px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.blueprint-stage.blueprint-stage--zoom {
+  display: flex;
+  overflow: auto;
+  cursor: grab;
+  touch-action: none;
+}
+
+.blueprint-stage.blueprint-stage--zoom:active {
+  cursor: grabbing;
+}
+
+.overlay-body .blueprint-stage.blueprint-stage--zoom img,
+.blueprint-stage.blueprint-stage--zoom img {
+  flex: none;
+  margin: auto;
+  max-width: none;
+  max-height: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .blueprint-stage img {
@@ -795,8 +879,209 @@ h2 {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .map-card {
-    animation: none;
-  }
+/* ---------- Overlay mode (desktop app) ---------- */
+
+.overlay-app {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.overlay-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.overlay-bar select,
+.overlay-bar button,
+.overlay-bar input {
+  -webkit-app-region: no-drag;
+}
+
+.overlay-logo {
+  border-radius: 5px;
+  flex-shrink: 0;
+}
+
+.overlay-select {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+
+.overlay-select--floor {
+  flex: 0 1 auto;
+  max-width: 45%;
+}
+
+.overlay-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.overlay-opacity {
+  display: flex;
+  align-items: center;
+}
+
+.overlay-opacity input {
+  width: 64px;
+  accent-color: var(--accent);
+}
+
+.overlay-btn {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.overlay-btn:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.overlay-btn--close:hover {
+  color: #ff6b6b;
+  border-color: #ff6b6b;
+}
+
+.overlay-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px 10px;
+}
+
+.overlay-body .blueprints {
+  flex: 1;
+  min-height: 0;
+  margin-top: 0;
+}
+
+.overlay-body .blueprint-stage {
+  margin-top: 8px;
+  padding: 8px;
+  min-height: 0;
+}
+
+/* Flex + auto margins keeps the whole blueprint visible and centered at
+   every window size (percentage clamps inside the grid stage can fail). */
+.overlay-body .blueprint-stage {
+  display: flex;
+}
+
+.overlay-body .blueprint-stage img {
+  margin: auto;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+/* --- HUD mini: one tiny strip, floor picked from a dropdown --- */
+
+.overlay-app--mini .overlay-bar {
+  padding: 3px 6px;
+  gap: 6px;
+}
+
+.overlay-app--mini .overlay-logo {
+  width: 14px;
+  height: 14px;
+}
+
+.overlay-app--mini .overlay-select {
+  font-size: 11.5px;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.overlay-app--mini .overlay-opacity input {
+  width: 44px;
+}
+
+.overlay-app--mini .overlay-body {
+  padding: 4px;
+}
+
+/* --- HUD hidden: nothing but the blueprint --- */
+
+.overlay-app--hidden .overlay-bar {
+  display: none;
+}
+
+.overlay-app--hidden .overlay-body {
+  padding: 4px;
+}
+
+.overlay-app--hidden .blueprint-stage {
+  border-radius: 10px;
+}
+
+/* Tiny corner pill left behind so the window can still be moved and the
+   HUD restored. Draggable, and stays clear of the blueprint's corner. */
+
+.overlay-mini {
+  position: fixed;
+  top: 4px;
+  right: 4px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: rgba(16, 16, 21, 0.85);
+  border: 1px solid var(--border);
+  -webkit-app-region: drag;
+  opacity: 0.35;
+  transition: opacity 0.15s ease;
+}
+
+.overlay-mini:hover {
+  opacity: 1;
+}
+
+.overlay-mini-btn {
+  -webkit-app-region: no-drag;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.overlay-mini-btn--show:hover {
+  color: var(--accent);
+  background: var(--accent-soft);
 }
