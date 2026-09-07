@@ -23,7 +23,7 @@ export default function SpecialThanksPage() {
         <p className="eyebrow">The Squad</p>
         <h1>Special Thanks</h1>
         <p className="lede">
-          R6Champs is built with the boys. Show them some love.
+          R6Legends is built with the boys. Show them some love.
         </p>
       </div>
       <div className="thanks-grid">

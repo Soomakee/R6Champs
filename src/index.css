@@ -83,38 +83,12 @@ a {
 }
 
 .brand-mark {
-  display: inline-grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
-  background: linear-gradient(135deg, #ff5e2b, #ff8a3d);
-  color: #0a0a0a;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0;
-}
-
-img.brand-mark {
-  object-fit: cover;
-  border-radius: 9px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .brand-name {
   font-size: 18px;
-}
-
-.brand-name::after {
-  content: '';
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  margin-left: 5px;
-  border-radius: 50%;
-  background: var(--accent);
-  vertical-align: super;
 }
 
 .nav-tabs {

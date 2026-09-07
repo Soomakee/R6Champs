@@ -11,8 +11,8 @@ export default function Navbar() {
     <header className="navbar">
       <div className="navbar-inner">
         <Link to="/" className="brand">
-          <img className="brand-mark" src="/favicon.webp" alt="R6Champs logo" width="34" height="34" />
-          <span className="brand-name">Champs</span>
+          <img className="brand-mark" src="/favicon.webp" alt="R6Legends logo" width="34" height="34" />
+          <span className="brand-name">R6Legends</span>
         </Link>
         <nav className="nav-tabs">
           {tabs.map((tab) => (

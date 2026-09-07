@@ -7,12 +7,12 @@ export default function DonatePage() {
         <p className="eyebrow">Keep it running</p>
         <h1>Donate</h1>
         <p className="lede">
-          R6Champs is free and ad-free. Donations cover hosting and keep the
+          R6Legends is free and ad-free. Donations cover hosting and keep the
           map library growing.
         </p>
       </div>
       <div className="donate-card">
-        <h2>Support R6Champs</h2>
+        <h2>Support R6Legends</h2>
         <p>
           Every contribution goes toward servers, new map strategies, and
           keeping the site fast and clean. No paywalls, ever.

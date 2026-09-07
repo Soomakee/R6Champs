@@ -21,7 +21,7 @@ export default function App() {
         </Routes>
       </main>
       <footer className="footer">
-        <span>R6Champs — a community strategy hub.</span>
+        <span>R6Legends — a community strategy hub.</span>
         <span className="footer-note">Not affiliated with Ubisoft.</span>
       </footer>
     </div>
