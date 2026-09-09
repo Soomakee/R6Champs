@@ -375,6 +375,7 @@ ipcMain.handle('gui:manifest', () => ({
   map: currentMap,
   floor: currentFloor,
   width: minimap ? minimap.getSize()[0] : 460,
+  version: app.getVersion(),
 }))
 ipcMain.handle('gui:select', (_e, { map, floor }) => {
   if (typeof map === 'string' && map) {

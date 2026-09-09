@@ -112,8 +112,24 @@
   function renderAppUpdate() {
     const row = $('appupdrow')
     const el = $('appupd')
-    if (!appUpdate || appUpdate.appUpdate === 'none' || appUpdate.appUpdate === 'error') {
-      // Once we know an update was found at all this session, keep saying so.
+    if (appUpdate && appUpdate.appUpdate === 'none') {
+      // A manual check found no newer version.
+      if (window.__checkingApp) {
+        window.__checkingApp = false
+        row.style.display = 'flex'
+        el.textContent = '✓ You\'re up to date (v' + (window.__ver || '') + ')'
+        const b = $('appupdcheck')
+        if (b) b.textContent = '↻ Check for app update'
+        setTimeout(() => { row.style.display = 'none' }, 3000)
+      } else if (!window.__updateSeen) {
+        row.style.display = 'none'
+      } else {
+        row.style.display = 'flex'
+        el.textContent = '⚠ Update ready — restart the app to install'
+      }
+      return
+    }
+    if (!appUpdate || appUpdate.appUpdate === 'error') {
       if (!window.__updateSeen) { row.style.display = 'none'; return }
       row.style.display = 'flex'
       el.textContent = '⚠ Update ready — restart the app to install'
@@ -143,9 +159,10 @@
   $('appupdcheck').addEventListener('click', () => {
     const b = $('appupdcheck')
     b.textContent = 'Checking…'
+    window.__checkingApp = true
     window.guiAPI.checkAppUpdate()
-    // The status arrives via onAppUpdate events; if nothing is found, show it.
-    setTimeout(() => { if (b.textContent === 'Checking…') b.textContent = '↻ Check for app update' }, 4000)
+    // Fallback reset if no update event arrives.
+    setTimeout(() => { if (b.textContent === 'Checking…') { b.textContent = '↻ Check for app update'; window.__checkingApp = false } }, 6000)
   })
 
   $('upd').addEventListener('click', async () => {
@@ -163,7 +180,10 @@
     fillMaps(map)
     $('floor').value = floor
     if (width) $('size').value = width
-    if (version) $('ver').textContent = 'v' + version
+    if (version) {
+      window.__ver = version
+      $('ver').textContent = 'v' + version
+    }
   })
 </script>
 </body>
