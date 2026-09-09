@@ -1081,7 +1081,178 @@ h2 {
   cursor: pointer;
 }
 
-.overlay-mini-btn--show:hover {
-  color: var(--accent);
-  background: var(--accent-soft);
+/* ---------------- Minimap (transparent Electron window) ---------------- */
+
+html:has(.minimap-root),
+html:has(.minimap-root) body,
+#root:has(.minimap-root) {
+  background: transparent !important;
+  overflow: hidden;
 }
+
+.minimap-root {
+  width: 100vw;
+  height: 100vh;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.minimap-img {
+  max-width: 96%;
+  max-height: 96%;
+  -webkit-app-region: drag; /* the whole image drags the window */
+  -webkit-user-drag: none;
+  user-select: none;
+  pointer-events: auto;
+  /* subtle full-image backing: light grey wash inside the image bounds */
+  background: rgba(128, 128, 128, 0.14);
+  border-radius: 4px;
+  /* dark grey outline around the entire image */
+  outline: 1px solid rgba(60, 60, 60, 0.85);
+  outline-offset: -1px;
+  filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.55));
+}
+
+/* ---------------- Minimap GUI controller ---------------- */
+
+html:has(.mmgui-root),
+html:has(.mmgui-root) body,
+#root:has(.mmgui-root) {
+  background: transparent !important;
+  overflow: hidden;
+}
+
+.mmgui-root {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: rgba(12, 12, 16, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  -webkit-app-region: drag; /* whole panel is a drag handle */
+  font-family: inherit;
+}
+
+.mmgui-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 2px;
+}
+
+.mmgui-title {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.mmgui-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 8px;
+}
+
+.mmgui-slider {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 1;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+}
+
+.mmgui-label {
+  -webkit-app-region: no-drag;
+  flex: 0 0 72px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.65);
+  white-space: nowrap;
+}
+
+.mmgui-slider input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+  -webkit-app-region: no-drag; /* slider thumb must not drag the window */
+}
+
+.mmgui-btn {
+  -webkit-app-region: no-drag;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.mmgui-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.mmgui-btn--close {
+  width: 22px;
+  height: 22px;
+  font-size: 11px;
+}
+
+.mmgui-select {
+  -webkit-app-region: no-drag;
+  flex: 1;
+  min-width: 0;
+  height: 24px;
+  padding: 0 4px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.mmgui-select:hover {
+  border-color: var(--accent);
+}
+
+.mmgui-select option {
+  background: #12121a;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.mmgui-controls--update {
+  padding-top: 0;
+}
+
+.mmgui-btn--update {
+  width: auto;
+  flex: 1;
+  height: 22px;
+  font-size: 10px;
+  padding: 0 8px;
+  gap: 4px;
+}
+
+.mmgui-update-note {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+}
+

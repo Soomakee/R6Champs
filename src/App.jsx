@@ -5,11 +5,18 @@ import MapPage from './pages/MapPage.jsx'
 import SpecialThanksPage from './pages/SpecialThanksPage.jsx'
 import DonatePage from './pages/DonatePage.jsx'
 import OverlayPage from './pages/OverlayPage.jsx'
+import MinimapPage from './pages/MinimapPage.jsx'
+import MinimapGuiPage from './pages/MinimapGuiPage.jsx'
 import { MAPS } from './data/maps.js'
 
 export default function App() {
+  const view = new URLSearchParams(window.location.search).get('view')
+  // Transparent image-only minimap window (Electron)
+  if (view === 'minimap') return <MinimapPage />
+  // Small controller GUI for the minimap (Electron)
+  if (view === 'minimap-gui') return <MinimapGuiPage />
   // Compact mode for the desktop overlay app (Electron window over the game)
-  if (new URLSearchParams(window.location.search).get('view') === 'overlay') {
+  if (view === 'overlay') {
     return <OverlayPage />
   }
 

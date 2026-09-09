@@ -1,0 +1,119 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+  * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+  #root {
+    width: 100vw; height: 100vh;
+    display: flex; flex-direction: column;
+    background: rgba(12,12,16,0.92);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    -webkit-app-region: drag;
+    color: rgba(255,255,255,0.85);
+    overflow: hidden;
+  }
+  .bar { display: flex; align-items: center; gap: 8px; padding: 6px 8px 2px; }
+  .title { flex: 1; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,0.75); }
+  .controls { display: flex; align-items: center; gap: 6px; padding: 4px 8px 8px; }
+  .controls.upd { padding-top: 0; }
+  .label { flex: 0 0 72px; font-size: 10px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: rgba(255,255,255,0.65); white-space: nowrap; -webkit-app-region: no-drag; }
+  .slider { display: flex; align-items: center; gap: 5px; flex: 1; color: rgba(255,255,255,0.6); font-size: 12px; }
+  input[type=range] { width: 100%; accent-color: #f97316; -webkit-app-region: no-drag; }
+  select { -webkit-app-region: no-drag; flex: 1; min-width: 0; height: 24px; padding: 0 4px; border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.9); font-size: 11px; cursor: pointer; }
+  select:hover { border-color: #f97316; }
+  select option { background: #12121a; }
+  .btn { -webkit-app-region: no-drag; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,0.14); border-radius: 7px; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85); font-size: 13px; cursor: pointer; transition: background .15s, color .15s, border-color .15s; }
+  .btn:hover { background: rgba(249,115,22,0.18); color: #f97316; border-color: #f97316; }
+  .btn.close { width: 22px; height: 22px; font-size: 11px; }
+  .btn.update { width: auto; flex: 1; height: 22px; font-size: 10px; padding: 0 8px; }
+  .note { font-size: 10px; color: rgba(255,255,255,0.55); white-space: nowrap; }
+</style>
+</head>
+<body>
+<div id="root">
+  <div class="bar">
+    <span class="title">Minimap</span>
+    <button class="btn close" id="quit" title="Quit the minimap app">✕</button>
+  </div>
+  <div class="controls">
+    <select id="map" title="Map"></select>
+    <select id="floor" title="Floor"></select>
+  </div>
+  <div class="controls">
+    <label class="slider" title="Background wash opacity">
+      <span class="label">Background</span>
+      <input type="range" id="bg" min="0" max="1" step="0.01" value="0.14" />
+    </label>
+  </div>
+  <div class="controls">
+    <label class="slider" title="Minimap size">
+      <span class="label">Size</span>
+      <input type="range" id="size" min="180" max="1400" step="10" value="460" />
+    </label>
+    <button class="btn" id="vis" title="Show / hide the minimap">👁</button>
+  </div>
+  <div class="controls upd">
+    <button class="btn update" id="upd" title="Check GitHub for new/updated map overlays">↻ Check for map updates</button>
+    <span class="note" id="updnote"></span>
+  </div>
+</div>
+<script>
+  const $ = (id) => document.getElementById(id)
+  let visible = true
+  let manifest = {}
+
+  function fillMaps(selected) {
+    const mapSel = $('map')
+    mapSel.innerHTML = ''
+    for (const m of Object.keys(manifest)) {
+      const o = document.createElement('option')
+      o.value = m; o.textContent = m
+      mapSel.appendChild(o)
+    }
+    if (selected) mapSel.value = selected
+    fillFloors()
+  }
+  function fillFloors() {
+    const floorSel = $('floor')
+    const floors = manifest[$('map').value] || []
+    floorSel.innerHTML = ''
+    floors.forEach((f, i) => {
+      const o = document.createElement('option')
+      o.value = i; o.textContent = f.name
+      floorSel.appendChild(o)
+    })
+    floorSel.disabled = !floors.length
+  }
+
+  $('map').addEventListener('change', () => { fillFloors(); window.guiAPI.select({ map: $('map').value, floor: 0 }) })
+  $('floor').addEventListener('change', () => window.guiAPI.select({ floor: Number($('floor').value) }))
+  $('bg').addEventListener('input', (e) => window.guiAPI.setBg(Number(e.target.value)))
+  $('size').addEventListener('input', (e) => window.guiAPI.setWidth(Number(e.target.value)))
+  $('vis').addEventListener('click', () => {
+    visible = !visible
+    $('vis').textContent = visible ? '👁' : '🚫'
+    window.guiAPI.setVisible(visible)
+  })
+  $('quit').addEventListener('click', () => window.guiAPI.quit())
+  $('upd').addEventListener('click', async () => {
+    $('updnote').textContent = 'Checking…'
+    const res = await window.guiAPI.checkNow()
+    $('updnote').textContent = res.ok ? (res.upToDate || res.added === 0 ? 'Up to date' : `+${res.added} map image(s)`) : 'Offline'
+    const m = await window.guiAPI.getManifest()
+    manifest = m.manifest
+    fillMaps(m.map)
+  })
+
+  // initial state from main process
+  window.guiAPI.getManifest().then(({ manifest: mf, map, floor, width }) => {
+    manifest = mf || {}
+    fillMaps(map)
+    $('floor').value = floor
+    if (width) $('size').value = width
+  })
+</script>
+</body>
+</html>

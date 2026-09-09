@@ -131,4 +131,12 @@ export default defineConfig({
   // assets/ is copied into the production build output; in dev the plugin's
   // middleware serves it (kept for build parity).
   publicDir: 'assets',
+  server: {
+    watch: {
+      // Editors (e.g. Photoshop) hold locks on files here, which crashed
+      // Vite's watcher with EBUSY. The overlays folder isn't part of the
+      // manifest scan, so nothing needs live-reload from it.
+      ignored: ['**/assets/Map Blueprints Overlays/**', '**/assets/Icon/**'],
+    },
+  },
 })

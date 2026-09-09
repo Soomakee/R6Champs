@@ -3,11 +3,47 @@
   "version": "1.0.0",
   "description": "R6Legends always-on-top blueprint overlay for Rainbow Six Siege",
   "main": "main.js",
+  "author": "Soomakee",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "dist": "electron-builder --win portable",
+    "dist:installer": "electron-builder --win nsis"
   },
   "devDependencies": {
-    "electron": "^33.0.0"
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.r6legends.overlay",
+    "productName": "R6Legends Overlay",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "minimap.html",
+      "gui.html",
+      "preload.js",
+      "preload-minimap.js",
+      "preload-gui.js"
+    ],
+    "extraResources": [
+      {
+        "from": "../assets/Map Blueprints Overlays",
+        "to": "overlays"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "portable": {
+      "artifactName": "R6Legends-Overlay-${version}.exe"
+    }
   },
   "allowScripts": {
     "electron@33.4.11": true
