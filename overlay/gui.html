@@ -8,67 +8,280 @@
   #root {
     width: 100vw; height: 100vh;
     display: flex; flex-direction: column;
-    background: rgba(12,12,16,0.92);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 10px;
+    background: rgba(14,14,18,0.95);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 12px;
     -webkit-app-region: drag;
-    color: rgba(255,255,255,0.85);
+    color: rgba(255,255,255,0.88);
     overflow: hidden;
+    user-select: none;
   }
-  .bar { display: flex; align-items: center; gap: 8px; padding: 6px 8px 2px; }
-  .title { flex: 1; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,0.75); }
-  .controls { display: flex; align-items: center; gap: 6px; padding: 4px 8px 8px; }
-  .controls.upd { padding-top: 0; }
-  .label { flex: 0 0 72px; font-size: 10px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: rgba(255,255,255,0.65); white-space: nowrap; -webkit-app-region: no-drag; }
-  .slider { display: flex; align-items: center; gap: 5px; flex: 1; color: rgba(255,255,255,0.6); font-size: 12px; }
-  input[type=range] { width: 100%; accent-color: #f97316; -webkit-app-region: no-drag; }
-  select { -webkit-app-region: no-drag; flex: 1; min-width: 0; height: 24px; padding: 0 4px; border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.9); font-size: 11px; cursor: pointer; }
-  select:hover { border-color: #f97316; }
+
+  /* --- Header --- */
+  .bar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+  .title {
+    flex: 1; font-size: 11px; font-weight: 800;
+    letter-spacing: .10em; text-transform: uppercase;
+    color: rgba(255,255,255,0.82);
+  }
+  .ver {
+    font-size: 10px; font-weight: 500; color: rgba(255,255,255,0.45);
+    letter-spacing: .02em;
+    -webkit-app-region: no-drag;
+  }
+  .btn.close {
+    width: 24px; height: 24px; font-size: 12px;
+    border-radius: 7px;
+  }
+
+  /* --- Body rows --- */
+  .row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 12px;
+  }
+  .row + .row { border-top: 1px solid rgba(255,255,255,0.05); }
+
+  /* --- Labels --- */
+  .label {
+    flex: 0 0 78px; font-size: 9.5px; font-weight: 700;
+    letter-spacing: .08em; text-transform: uppercase;
+    color: rgba(255,255,255,0.55); white-space: nowrap;
+    -webkit-app-region: no-drag;
+  }
+
+  /* --- Selects --- */
+  select {
+    -webkit-app-region: no-drag; flex: 1; min-width: 0; height: 28px;
+    padding: 0 8px;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.9); font-size: 11px;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  select:hover { border-color: rgba(249,115,22,0.6); background: rgba(255,255,255,0.08); }
   select option { background: #12121a; }
-  .btn { -webkit-app-region: no-drag; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,0.14); border-radius: 7px; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85); font-size: 13px; cursor: pointer; transition: background .15s, color .15s, border-color .15s; }
+
+  /* --- Sliders --- */
+  .slider { display: flex; align-items: center; gap: 10px; flex: 1; }
+  input[type=range] {
+    -webkit-app-region: no-drag;
+    width: 100%; height: 4px; appearance: none; outline: none;
+    background: rgba(255,255,255,0.14); border-radius: 4px;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    appearance: none; width: 14px; height: 14px; border-radius: 50%;
+    background: #f97316; border: none;
+    box-shadow: 0 0 0 3px rgba(249,115,22,0.18);
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb:hover { box-shadow: 0 0 0 4px rgba(249,115,22,0.25); }
+
+  /* --- Buttons --- */
+  .btn {
+    -webkit-app-region: no-drag;
+    height: 28px; min-width: 28px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid rgba(255,255,255,0.12); border-radius: 8px;
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.85); font-size: 12px;
+    cursor: pointer;
+    transition: background .15s, color .15s, border-color .15s;
+    white-space: nowrap;
+  }
   .btn:hover { background: rgba(249,115,22,0.18); color: #f97316; border-color: #f97316; }
-  .btn.close { width: 22px; height: 22px; font-size: 11px; }
-  .btn.update { width: auto; flex: 1; height: 22px; font-size: 10px; padding: 0 8px; }
-  .note { font-size: 10px; color: rgba(255,255,255,0.55); white-space: nowrap; }
+  .btn.icon { width: 28px; }
+
+  /* Checker row */
+  .checks { display: flex; gap: 6px; flex: 1; }
+  .checks .btn { flex: 1; font-size: 10px; font-weight: 600; padding: 0 6px; }
+  .checks .btn.primary { background: rgba(249,115,22,0.16); border-color: rgba(249,115,22,0.4); color: #f97316; }
+  .checks .btn.primary:hover { background: rgba(249,115,22,0.28); }
+
+  /* --- Status / update banner (reserved space, always present) --- */
+  .status {
+    display: flex; align-items: center; gap: 8px;
+    margin-top: auto;
+    padding: 9px 12px;
+    min-height: 40px;
+    border-top: 1px solid rgba(255,255,255,0.07);
+  }
+  .status .note {
+    flex: 1; font-size: 10.5px; color: rgba(255,255,255,0.55);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    -webkit-app-region: no-drag;
+  }
+  .status.update .note { color: #fbbf24; }
+  .status .btn.update {
+    height: 26px; padding: 0 12px; font-size: 10px; font-weight: 700;
+    background: rgba(249,115,22,0.22); border-color: #f97316; color: #f97316;
+  }
+  .status .btn.update:hover { background: rgba(249,115,22,0.35); }
 </style>
 </head>
 <body>
 <div id="root">
   <div class="bar">
     <span class="title">Minimap</span>
-    <span class="note" id="ver" style="opacity:.55;font-size:9px;margin-right:2px"></span>
+    <span class="ver" id="ver"></span>
     <button class="btn close" id="quit" title="Quit the minimap app">✕</button>
   </div>
-  <div class="controls">
+
+  <div class="row">
     <select id="map" title="Map"></select>
     <select id="floor" title="Floor"></select>
   </div>
-  <div class="controls">
+
+  <div class="row">
+    <span class="label">Background</span>
     <label class="slider" title="Background wash opacity">
-      <span class="label">Background</span>
       <input type="range" id="bg" min="0" max="1" step="0.01" value="0.14" />
     </label>
   </div>
-  <div class="controls">
+
+  <div class="row">
+    <span class="label">Size</span>
     <label class="slider" title="Minimap size">
-      <span class="label">Size</span>
       <input type="range" id="size" min="180" max="1400" step="10" value="460" />
     </label>
-    <button class="btn" id="vis" title="Show / hide the minimap">👁</button>
+    <button class="btn icon" id="vis" title="Show / hide the minimap">👁</button>
   </div>
-  <div class="controls upd">
-    <button class="btn update" id="appupdcheck" title="Check for a new app version">↻ Check for app update</button>
-    <button class="btn update" id="upd" title="Check GitHub for new/updated map overlays">↻ Check map</button>
-    <span class="note" id="updnote"></span>
+
+  <div class="row">
+    <div class="checks">
+      <button class="btn primary" id="appupdcheck" title="Check for a new app version">↻ Check for app update</button>
+      <button class="btn" id="upd" title="Check GitHub for new/updated map overlays">↻ Check map</button>
+    </div>
   </div>
-  <div class="controls upd" id="appupdrow" style="display:none">
-    <span class="note" id="appupd" style="color:#f5a623"></span>
+
+  <div class="status" id="status">
+    <span class="note" id="updnote">Ready</span>
+    <span class="note" id="appupd" style="display:none"></span>
   </div>
 </div>
 <script>
   const $ = (id) => document.getElementById(id)
   let visible = true
   let manifest = {}
+  let appUpdate = null
+
+  // Swap the status bar into "update" styling (orange) and show the update text.
+  function showUpdate(text, action) {
+    const status = $('status')
+    const upd = $('appupd')
+    const upnote = $('updnote')
+    status.classList.add('update')
+    upnote.style.display = 'none'
+    upd.style.display = 'inline'
+    upd.textContent = text
+    // Add an action button if provided (only ever one).
+    const old = document.getElementById('appupdbtn')
+    if (old) old.remove()
+    if (action) {
+      const b = document.createElement('button')
+      b.id = 'appupdbtn'
+      b.className = 'btn update'
+      b.textContent = action.label
+      b.onclick = action.onClick
+      status.appendChild(b)
+    }
+  }
+  // Show a neutral/plain message in the status bar (removes update styling).
+  function showNote(text) {
+    const status = $('status')
+    const upd = $('appupd')
+    const upnote = $('updnote')
+    status.classList.remove('update')
+    const old = document.getElementById('appupdbtn')
+    if (old) old.remove()
+    upd.style.display = 'none'
+    upnote.style.display = 'inline'
+    upnote.textContent = text
+  }
+
+  window.guiAPI.onAppUpdate?.((s) => {
+    appUpdate = s
+    renderAppUpdate()
+  })
+  function renderAppUpdate() {
+    const s = appUpdate
+    if (!s) return
+    if (s.appUpdate === 'none') {
+      // A manual check found no newer version.
+      if (window.__checkingApp) {
+        window.__checkingApp = false
+        const b = $('appupdcheck')
+        if (b) b.textContent = '↻ Check for app update'
+        showNote('✓ You\'re up to date (v' + (window.__ver || '?') + ')')
+        setTimeout(() => { if (!window.__updateSeen) showNote('Ready') }, 3000)
+      } else if (!window.__updateSeen) {
+        showNote('Ready')
+      } else {
+        showUpdate('⚠ Update ready — restart the app to install')
+      }
+      return
+    }
+    if (s.appUpdate === 'error') {
+      showNote('Update check failed')
+      return
+    }
+    if (s.appUpdate === 'available') {
+      window.__updateSeen = true
+      showUpdate(`⚠ Update v${s.version} downloading…`)
+    } else if (s.appUpdate === 'downloading') {
+      window.__updateSeen = true
+      showUpdate(`⬇ Downloading update… ${s.percent}%`)
+    } else if (s.appUpdate === 'ready') {
+      window.__updateSeen = true
+      showUpdate(`Update ready — v${s.version}`, {
+        label: '⟳ Restart to install',
+        onClick: () => window.guiAPI.installUpdate(),
+      })
+    }
+  }
+
+  $('appupdcheck').addEventListener('click', () => {
+    const b = $('appupdcheck')
+    b.textContent = 'Checking…'
+    window.__checkingApp = true
+    window.guiAPI.checkAppUpdate()
+    // Fallback reset if no update event arrives.
+    setTimeout(() => {
+      if (b.textContent === 'Checking…') {
+        b.textContent = '↻ Check for app update'
+        window.__checkingApp = false
+        showNote('Update check failed')
+      }
+    }, 8000)
+  })
+
+  $('upd').addEventListener('click', async () => {
+    showNote('Checking maps…')
+    const res = await window.guiAPI.checkNow()
+    const ok = res && res.ok
+    if (!ok) showNote('Offline')
+    else if (res.upToDate || res.added === 0) showNote('Maps up to date')
+    else showNote(`+${res.added} map image(s)`)
+    const m = await window.guiAPI.getManifest()
+    manifest = m.manifest
+    fillMaps(m.map)
+  })
+
+  $('map').addEventListener('change', () => { fillFloors(); window.guiAPI.select({ map: $('map').value, floor: 0 }) })
+  $('floor').addEventListener('change', () => window.guiAPI.select({ floor: Number($('floor').value) }))
+  $('bg').addEventListener('input', (e) => window.guiAPI.setBg(Number(e.target.value)))
+  $('size').addEventListener('input', (e) => window.guiAPI.setWidth(Number(e.target.value)))
+  $('vis').addEventListener('click', () => {
+    visible = !visible
+    $('vis').textContent = visible ? '👁' : '🚫'
+    window.guiAPI.setVisible(visible)
+  })
+  $('quit').addEventListener('click', () => window.guiAPI.quit())
 
   function fillMaps(selected) {
     const mapSel = $('map')
@@ -93,88 +306,6 @@
     floorSel.disabled = !floors.length
   }
 
-  $('map').addEventListener('change', () => { fillFloors(); window.guiAPI.select({ map: $('map').value, floor: 0 }) })
-  $('floor').addEventListener('change', () => window.guiAPI.select({ floor: Number($('floor').value) }))
-  $('bg').addEventListener('input', (e) => window.guiAPI.setBg(Number(e.target.value)))
-  $('size').addEventListener('input', (e) => window.guiAPI.setWidth(Number(e.target.value)))
-  $('vis').addEventListener('click', () => {
-    visible = !visible
-    $('vis').textContent = visible ? '👁' : '🚫'
-    window.guiAPI.setVisible(visible)
-  })
-  $('quit').addEventListener('click', () => window.guiAPI.quit())
-  // app self-update (new exe version): show progress + install button
-  let appUpdate = null
-  window.guiAPI.onAppUpdate?.((s) => {
-    appUpdate = s
-    renderAppUpdate()
-  })
-  function renderAppUpdate() {
-    const row = $('appupdrow')
-    const el = $('appupd')
-    if (appUpdate && appUpdate.appUpdate === 'none') {
-      // A manual check found no newer version.
-      if (window.__checkingApp) {
-        window.__checkingApp = false
-        row.style.display = 'flex'
-        el.textContent = '✓ You\'re up to date (v' + (window.__ver || '') + ')'
-        const b = $('appupdcheck')
-        if (b) b.textContent = '↻ Check for app update'
-        setTimeout(() => { row.style.display = 'none' }, 3000)
-      } else if (!window.__updateSeen) {
-        row.style.display = 'none'
-      } else {
-        row.style.display = 'flex'
-        el.textContent = '⚠ Update ready — restart the app to install'
-      }
-      return
-    }
-    if (!appUpdate || appUpdate.appUpdate === 'error') {
-      if (!window.__updateSeen) { row.style.display = 'none'; return }
-      row.style.display = 'flex'
-      el.textContent = '⚠ Update ready — restart the app to install'
-      return
-    }
-    row.style.display = 'flex'
-    if (appUpdate.appUpdate === 'available') {
-      window.__updateSeen = true
-      el.textContent = `⚠ Update available (v${appUpdate.version}) — downloading…`
-    } else if (appUpdate.appUpdate === 'downloading') {
-      window.__updateSeen = true
-      el.textContent = `⚠ Update ${appUpdate.percent}% — keep app open`
-    } else if (appUpdate.appUpdate === 'ready') {
-      window.__updateSeen = true
-      el.innerHTML = ''
-      const b = document.createElement('button')
-      b.className = 'btn update'
-      b.style.background = 'rgba(249,115,22,0.25)'
-      b.style.borderColor = '#f97316'
-      b.style.fontWeight = '700'
-      b.textContent = `⟳ Restart now to install v${appUpdate.version}`
-      b.onclick = () => window.guiAPI.installUpdate()
-      el.appendChild(b)
-    }
-  }
-
-  $('appupdcheck').addEventListener('click', () => {
-    const b = $('appupdcheck')
-    b.textContent = 'Checking…'
-    window.__checkingApp = true
-    window.guiAPI.checkAppUpdate()
-    // Fallback reset if no update event arrives.
-    setTimeout(() => { if (b.textContent === 'Checking…') { b.textContent = '↻ Check for app update'; window.__checkingApp = false } }, 6000)
-  })
-
-  $('upd').addEventListener('click', async () => {
-    $('updnote').textContent = 'Checking…'
-    const res = await window.guiAPI.checkNow()
-    $('updnote').textContent = res.ok ? (res.upToDate || res.added === 0 ? 'Up to date' : `+${res.added} map image(s)`) : 'Offline'
-    const m = await window.guiAPI.getManifest()
-    manifest = m.manifest
-    fillMaps(m.map)
-  })
-
-  // initial state from main process
   window.guiAPI.getManifest().then(({ manifest: mf, map, floor, width, version }) => {
     manifest = mf || {}
     fillMaps(map)

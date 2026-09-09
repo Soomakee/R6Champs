@@ -254,8 +254,8 @@ function createMinimap() {
 
 function createGui() {
   gui = new BrowserWindow({
-    width: 280,
-    height: 180,
+    width: 300,
+    height: 230,
     frame: false,
     transparent: true,
     hasShadow: false,
