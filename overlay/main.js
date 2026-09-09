@@ -206,6 +206,11 @@ let currentBg = 0.14 // background wash opacity (0 = none)
 let minimap = null
 let gui = null
 
+// App icon used for the windows' taskbar/alt-tab entries.
+// In packaged builds electron-builder puts icon.png next to the exe's
+// resources; in dev it sits alongside main.js.
+const APP_ICON = path.join(__dirname, 'icon.png')
+
 function currentSrc() {
   const manifest = scanOverlays()
   const floors = manifest[currentMap] || []
@@ -225,6 +230,7 @@ function createMinimap() {
     // NOTE: no backgroundColor here — setting any background color (even
     // '#00000000') makes transparent windows render solid black on Windows.
     alwaysOnTop: true,
+    icon: APP_ICON,
     title: 'Minimap',
     webPreferences: {
       preload: path.join(__dirname, 'preload-minimap.js'),
@@ -251,6 +257,7 @@ function createGui() {
     transparent: true,
     hasShadow: false,
     alwaysOnTop: true,
+    icon: APP_ICON,
     resizable: false,
     title: 'Minimap Controls',
     webPreferences: {
