@@ -6,8 +6,11 @@
   "author": "Soomakee",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --win portable",
-    "dist:installer": "electron-builder --win nsis"
+    "dist": "electron-builder --win nsis --publish always",
+    "dist:portable": "electron-builder --win portable"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
   },
   "devDependencies": {
     "electron": "^33.0.0",
@@ -21,11 +24,19 @@
     },
     "files": [
       "main.js",
+      "updater.js",
       "minimap.html",
       "gui.html",
       "preload.js",
       "preload-minimap.js",
-      "preload-gui.js"
+      "preload-gui.js",
+      "node_modules/electron-updater/**",
+      "node_modules/builder-util-runtime/**",
+      "node_modules/fs-extra/**",
+      "node_modules/js-yaml/**",
+      "node_modules/lazy-val/**",
+      "node_modules/semver/**",
+      "node_modules/tiny-typed-emitter/**"
     ],
     "extraResources": [
       {
@@ -33,16 +44,24 @@
         "to": "overlays"
       }
     ],
+    "publish": {
+      "provider": "github",
+      "owner": "Soomakee",
+      "repo": "R6Champs"
+    },
     "win": {
       "target": [
         {
-          "target": "portable",
+          "target": "nsis",
           "arch": ["x64"]
         }
       ]
     },
-    "portable": {
-      "artifactName": "R6Legends-Overlay-${version}.exe"
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "artifactName": "R6Legends-Overlay-Setup-${version}.exe",
+      "deleteAppDataOnUninstall": false
     }
   },
   "allowScripts": {

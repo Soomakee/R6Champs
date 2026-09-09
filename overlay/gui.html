@@ -59,6 +59,9 @@
     <button class="btn update" id="upd" title="Check GitHub for new/updated map overlays">↻ Check for map updates</button>
     <span class="note" id="updnote"></span>
   </div>
+  <div class="controls upd" id="appupdrow" style="display:none">
+    <span class="note" id="appupd"></span>
+  </div>
 </div>
 <script>
   const $ = (id) => document.getElementById(id)
@@ -98,6 +101,34 @@
     window.guiAPI.setVisible(visible)
   })
   $('quit').addEventListener('click', () => window.guiAPI.quit())
+  // app self-update (new exe version): show progress + install button
+  let appUpdate = null
+  window.guiAPI.onAppUpdate?.((s) => {
+    appUpdate = s
+    renderAppUpdate()
+  })
+  function renderAppUpdate() {
+    const row = $('appupdrow')
+    const el = $('appupd')
+    if (!appUpdate || appUpdate.appUpdate === 'none' || appUpdate.appUpdate === 'error') {
+      row.style.display = 'none'
+      return
+    }
+    row.style.display = 'flex'
+    if (appUpdate.appUpdate === 'downloading') {
+      el.textContent = `App update ${appUpdate.percent}%`
+    } else if (appUpdate.appUpdate === 'ready') {
+      el.innerHTML = ''
+      const b = document.createElement('button')
+      b.className = 'btn update'
+      b.textContent = '⟳ Restart to update app'
+      b.onclick = () => window.guiAPI.installUpdate()
+      el.appendChild(b)
+    } else if (appUpdate.appUpdate === 'available') {
+      el.textContent = 'App update downloading…'
+    }
+  }
+
   $('upd').addEventListener('click', async () => {
     $('updnote').textContent = 'Checking…'
     const res = await window.guiAPI.checkNow()

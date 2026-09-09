@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, globalShortcut } = require('electron')
 const path = require('path')
 const fs = require('fs')
+const { initUpdater, autoUpdater } = require('./updater')
 
 // Fully self-contained: both windows load local HTML files, overlay images
 // are served from disk. No website involved.
@@ -91,10 +92,13 @@ async function checkForMapUpdates() {
     if (!entries.length) throw new Error('no overlay files found in repo tree')
 
     // 3. Download anything new or changed (content sha differs from what we recorded)
+    // Files land directly in OVERLAYS_DIR (userData/overlays when packaged),
+    // preserving the <Map>/<Floor>.png structure the scanner expects.
+    const PREFIX = 'assets/Map Blueprints Overlays/'
     const known = state.files || {}
     for (const entry of entries) {
-      const rel = entry.path.slice('assets/'.length) // e.g. "Map Blueprints Overlays/Bank/Basement.png"
-      const dest = path.join(OVERLAYS_DIR, '..', rel)
+      const rel = entry.path.slice(PREFIX.length) // e.g. "Bank/Basement.png"
+      const dest = path.join(OVERLAYS_DIR, rel)
       if (known[entry.path] === entry.sha && fs.existsSync(dest)) continue
       const raw = await ghFetch(`${RAW_BASE}/${encodeURI(entry.path)}`)
       if (raw.status !== 200) continue
@@ -126,6 +130,10 @@ function broadcastUpdate() {
     const src = currentSrc()
     if (src) minimap.webContents.send('minimap:src', src)
   }
+}
+
+function broadcastAppUpdate(status) {
+  if (gui) gui.webContents.send('gui:appupdate', status)
 }
 
 /**
@@ -242,6 +250,18 @@ function createGui() {
 }
 
 app.whenReady().then(() => {
+  // One-time repair for the early buggy build: it downloaded overlays into
+  // userData/Map Blueprints Overlays (via a '..' path join) instead of
+  // userData/overlays. Migrate everything over, then remove the stray dir.
+  try {
+    const stray = path.join(app.getPath('userData'), 'Map Blueprints Overlays')
+    if (fs.existsSync(stray)) {
+      fs.cpSync(stray, OVERLAYS_DIR, { recursive: true, force: true })
+      fs.rmSync(stray, { recursive: true, force: true })
+    }
+    fs.rmSync(path.join(app.getPath('userData'), 'assets'), { recursive: true, force: true })
+  } catch {}
+
   createMinimap()
   createGui()
 
@@ -257,6 +277,12 @@ app.whenReady().then(() => {
   // Map auto-update: check now, then every 30 minutes
   checkForMapUpdates()
   setInterval(checkForMapUpdates, 30 * 60 * 1000)
+
+  // App self-update (only meaningful when packaged; skipped in dev)
+  if (app.isPackaged) {
+    initUpdater(broadcastAppUpdate)
+    autoUpdater.checkForUpdatesAndNotify().catch(() => {})
+  }
 })
 
 function toggleMinimap() {
@@ -315,6 +341,9 @@ ipcMain.handle('minimap:bg', (_e, v) => {
 })
 ipcMain.handle('gui:updatestatus', () => lastUpdateCheck)
 ipcMain.handle('gui:checknow', async () => checkForMapUpdates())
+ipcMain.handle('gui:installupdate', () => {
+  autoUpdater.quitAndInstall(false, true)
+})
 ipcMain.handle('gui:quit', () => app.quit())
 
 app.on('will-quit', () => globalShortcut.unregisterAll())
