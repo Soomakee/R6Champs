@@ -196,9 +196,26 @@ function scanOverlays() {
     }
   }
   for (const k of Object.keys(out)) {
-    out[k].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }))
+    // Sort floors top-down (Top Floor → Ground Floor → Basement) to match a
+    // building's physical layout. Falls back to numeric/alphabetical order.
+    out[k].sort((a, b) => floorRank(b.name) - floorRank(a.name))
   }
   return out
+}
+
+// Higher number = physically higher floor.
+function floorRank(name) {
+  const s = name.toLowerCase()
+  if (s.includes('roof')) return 120
+  if (s.includes('penthouse')) return 110
+  if (s.includes('top')) return 100
+  if (s.includes('third') || s.includes('3rd')) return 90
+  if (s.includes('second') || s.includes('2nd') || s.includes('middle')) return 80
+  if (s.includes('first') || s.includes('1st') || s.includes('ground')) return 70
+  const m = s.match(/(\d+)/)
+  if (m) return 60 + Math.min(40, Number(m[1]))
+  if (s.includes('basement') || s.includes('lower') || s.includes('sub')) return 10
+  return 50
 }
 
 // Current selection (map name, floor index) shared between the GUI and minimap
