@@ -29,9 +29,41 @@ const BRANCH = 'main'
 const RAW_BASE = `https://raw.githubusercontent.com/${REPO}/${BRANCH}`
 const API_BASE = `https://api.github.com/repos/${REPO}`
 const UPDATE_STATE_FILE = path.join(app ? app.getPath('userData') : __dirname, 'map-updates.json')
+const SETTINGS_FILE = path.join(app ? app.getPath('userData') : __dirname, 'settings.json')
 const GH_HEADERS = { 'User-Agent': 'R6Legends-Overlay', Accept: 'application/vnd.github+json' }
 
 let lastUpdateCheck = { at: null, ok: null, added: 0, updated: 0, error: null }
+
+// --- User settings (persisted to userData/settings.json) --------------------
+const DEFAULT_SETTINGS = {
+  toggleHotkey: 'Ctrl+Shift+H', // bindable key-combo that shows/hides the minimap
+  minimapWidth: 460,
+  background: 0.14,
+}
+let settings = { ...DEFAULT_SETTINGS }
+
+function loadSettings() {
+  try {
+    if (fs.existsSync(SETTINGS_FILE)) {
+      const parsed = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'))
+      settings = { ...DEFAULT_SETTINGS, ...parsed }
+    }
+  } catch {}
+}
+function saveSettings() {
+  try {
+    fs.mkdirSync(path.dirname(SETTINGS_FILE), { recursive: true })
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2))
+  } catch {}
+}
+function setSetting(key, value) {
+  settings[key] = value
+  saveSettings()
+}
+
+// Load persisted settings early so window size / background / hotkey defaults
+// reflect the user's last session before any window is created.
+loadSettings()
 
 function ghFetch(url) {
   return new Promise((resolve, reject) => {
@@ -221,7 +253,7 @@ function floorRank(name) {
 // Current selection (map name, floor index) shared between the GUI and minimap
 let currentMap = process.env.MINIMAP_MAP || 'Calypso Casino'
 let currentFloor = 0
-let currentBg = 0.14 // background wash opacity (0 = none)
+let currentBg = settings.background // background wash opacity (0 = none)
 
 let minimap = null
 let gui = null
@@ -240,8 +272,8 @@ function currentSrc() {
 
 function createMinimap() {
   minimap = new BrowserWindow({
-    width: 460,
-    height: 340,
+    width: settings.minimapWidth,
+    height: Math.round(settings.minimapWidth * 0.75),
     minWidth: 120,
     minHeight: 90,
     frame: false,
@@ -273,7 +305,7 @@ function createMinimap() {
 function createGui() {
   gui = new BrowserWindow({
     width: 300,
-    height: 230,
+    height: 300,
     frame: false,
     transparent: true,
     hasShadow: false,
@@ -334,8 +366,8 @@ app.whenReady().then(() => {
   createMinimap()
   createGui()
 
-  // Ctrl+Shift+H hides/shows the minimap from anywhere (e.g. in-game)
-  globalShortcut.register('Ctrl+Shift+H', () => toggleMinimap())
+  // Bindable hotkey hides/shows the minimap from anywhere (e.g. in-game).
+  registerToggleHotkey()
   // Ctrl+Shift+O pins/unpins (always-on-top toggle)
   globalShortcut.register('Ctrl+Shift+O', () => {
     if (!minimap) return
@@ -354,10 +386,53 @@ app.whenReady().then(() => {
   }
 })
 
+// Smoothly fade the overlay in/out. show()/hide() alone is an instant cut that
+// looks flashy/stuttery, so we animate window opacity instead.
+let fadeTimer = null
+function fadeMinimap(show) {
+  if (!minimap) return
+  clearTimeout(fadeTimer)
+  if (show) minimap.show()
+  const steps = 10
+  const from = show ? 0 : minimap.getOpacity()
+  const to = show ? 1 : 0
+  const step = (to - from) / steps
+  let i = 0
+  const tick = () => {
+    if (!minimap) return
+    i++
+    const v = Math.min(1, Math.max(0, from + step * i))
+    minimap.setOpacity(v)
+    if (i < steps) {
+      fadeTimer = setTimeout(tick, 12)
+    } else if (!show) {
+      minimap.hide() // fully hidden only after the fade-out finishes
+    }
+  }
+  tick()
+}
+
 function toggleMinimap() {
   if (!minimap) return
-  if (minimap.isVisible()) minimap.hide()
-  else minimap.show()
+  fadeMinimap(!minimap.isVisible())
+}
+
+// Register (or re-register) the user's bindable show/hide hotkey.
+function registerToggleHotkey() {
+  globalShortcut.unregister(settings.toggleHotkey)
+  if (settings.toggleHotkey) {
+    globalShortcut.register(settings.toggleHotkey, toggleMinimap)
+  }
+}
+
+// Validate/translate a user-typed combo into an Electron accelerator string,
+// or return null if it can't be registered (e.g. a bare modifier or a letter
+// already bound).
+function normalizeAccelerator(raw) {
+  const s = (raw || '').trim()
+  if (!s) return null
+  // Accept "h", "Ctrl+H", "Shift+Alt+1", etc. Electron uses + as the joiner.
+  return s.replace(/\s+/g, '')
 }
 
 // --- IPC from the GUI window ---
@@ -366,8 +441,7 @@ ipcMain.handle('minimap:opacity', (_e, v) => {
 })
 ipcMain.handle('minimap:visible', (_e, on) => {
   if (!minimap) return
-  if (on) minimap.show()
-  else minimap.hide()
+  fadeMinimap(!!on)
 })
 ipcMain.handle('minimap:resize', (_e, delta) => {
   if (!minimap) return
@@ -379,14 +453,42 @@ ipcMain.handle('minimap:resize', (_e, delta) => {
 // Set the minimap width directly; height keeps the 4:3 aspect of the default
 ipcMain.handle('minimap:width', (_e, w) => {
   if (!minimap) return
-  const width = Math.min(1400, Math.max(180, Math.round(Number(w) || 460)))
+  const width = Math.min(2000, Math.max(120, Math.round(Number(w) || 460)))
+  // resizable:false blocks programmatic SHRINKING of a frameless window on
+  // Windows (growing works, shrinking is ignored). Toggle resizable around
+  // setSize so both directions work, then lock it back to prevent edge grabs.
+  minimap.setResizable(true)
   minimap.setSize(width, Math.round(width * 0.75))
+  minimap.setResizable(false)
+  setSetting('minimapWidth', width)
   return width
 })
 ipcMain.handle('minimap:getwidth', () => {
   if (!minimap) return 460
   const [w] = minimap.getSize()
   return w
+})
+// Read the current settings for the GUI (hotkey, etc.).
+ipcMain.handle('gui:settings', () => ({ ...settings }))
+// Set the toggle-hotkey; re-registers it. Returns ok + the active combo.
+ipcMain.handle('gui:sethotkey', (_e, combo) => {
+  const accel = normalizeAccelerator(combo)
+  if (!accel) return { ok: false, error: 'Invalid combo' }
+  // Drop the old binding first so switching (e.g. Ctrl+H -> Alt+H) is clean.
+  if (settings.toggleHotkey) globalShortcut.unregister(settings.toggleHotkey)
+  try {
+    const ok = globalShortcut.register(accel, toggleMinimap)
+    if (!ok) {
+      // Failed (e.g. bare letter on Windows). Restore the old binding.
+      if (settings.toggleHotkey) globalShortcut.register(settings.toggleHotkey, toggleMinimap)
+      return { ok: false, error: 'Combo unavailable' }
+    }
+  } catch {
+    if (settings.toggleHotkey) globalShortcut.register(settings.toggleHotkey, toggleMinimap)
+    return { ok: false, error: 'Invalid combo' }
+  }
+  setSetting('toggleHotkey', accel)
+  return { ok: true, hotkey: accel }
 })
 ipcMain.handle('gui:manifest', () => ({
   manifest: scanOverlays(),
@@ -407,6 +509,7 @@ ipcMain.handle('gui:select', (_e, { map, floor }) => {
 })
 ipcMain.handle('minimap:bg', (_e, v) => {
   currentBg = Math.min(1, Math.max(0, Number(v) || 0))
+  setSetting('background', currentBg)
   minimap?.webContents.send('minimap:bg', currentBg)
 })
 ipcMain.handle('gui:updatestatus', () => lastUpdateCheck)
@@ -417,6 +520,10 @@ ipcMain.handle('gui:checkappupdate', () => {
 })
 ipcMain.handle('gui:installupdate', () => {
   autoUpdater.quitAndInstall(false, true)
+})
+ipcMain.handle('gui:minimize', () => {
+  // Minimize only the control panel, not the minimap overlay.
+  if (gui) gui.minimize()
 })
 ipcMain.handle('gui:quit', () => app.quit())
 

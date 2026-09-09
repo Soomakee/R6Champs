@@ -71,16 +71,27 @@
   .slider { display: flex; align-items: center; gap: 10px; flex: 1; }
   input[type=range] {
     -webkit-app-region: no-drag;
-    width: 100%; height: 4px; appearance: none; outline: none;
-    background: rgba(255,255,255,0.14); border-radius: 4px;
+    width: 100%; height: 24px; appearance: none; outline: none;
+    background: transparent; border-radius: 6px;
+    /* invisible, tall hit area; the visible track is drawn via the pseudo-element */
+    position: relative;
+    cursor: pointer;
+    margin: 0;
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 6px; border-radius: 6px;
+    background: rgba(255,255,255,0.16);
   }
   input[type=range]::-webkit-slider-thumb {
-    appearance: none; width: 14px; height: 14px; border-radius: 50%;
+    appearance: none; width: 18px; height: 18px; border-radius: 50%;
     background: #f97316; border: none;
-    box-shadow: 0 0 0 3px rgba(249,115,22,0.18);
-    cursor: pointer;
+    margin-top: -6px; /* center thumb on the 6px track */
+    box-shadow: 0 0 0 3px rgba(249,115,22,0.20), 0 1px 3px rgba(0,0,0,0.5);
+    cursor: grab;
   }
-  input[type=range]::-webkit-slider-thumb:hover { box-shadow: 0 0 0 4px rgba(249,115,22,0.25); }
+  input[type=range]::-webkit-slider-thumb:active { cursor: grabbing; box-shadow: 0 0 0 4px rgba(249,115,22,0.3); }
+  input[type=range]::-moz-range-track { height: 6px; border-radius: 6px; background: rgba(255,255,255,0.16); }
+  input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #f97316; border: none; cursor: grab; }
 
   /* --- Buttons --- */
   .btn {
@@ -96,6 +107,18 @@
   }
   .btn:hover { background: rgba(249,115,22,0.18); color: #f97316; border-color: #f97316; }
   .btn.icon { width: 28px; }
+
+  /* --- Hotkey input --- */
+  .hotkey {
+    -webkit-app-region: no-drag;
+    flex: 1; min-width: 0; height: 28px; padding: 0 8px;
+    border: 1px dashed rgba(255,255,255,0.22); border-radius: 8px;
+    background: rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.9); font-size: 11px; text-align: center;
+    cursor: pointer;
+    outline: none;
+  }
+  .hotkey:hover, .hotkey:focus { border-color: #f97316; border-style: solid; }
 
   /* Checker row */
   .checks { display: flex; gap: 6px; flex: 1; }
@@ -129,6 +152,7 @@
   <div class="bar">
     <span class="title">Minimap</span>
     <span class="ver" id="ver"></span>
+    <button class="btn close" id="min" title="Minimize the control panel">—</button>
     <button class="btn close" id="quit" title="Quit the minimap app">✕</button>
   </div>
 
@@ -147,9 +171,15 @@
   <div class="row">
     <span class="label">Size</span>
     <label class="slider" title="Minimap size">
-      <input type="range" id="size" min="180" max="1400" step="10" value="460" />
+      <input type="range" id="size" min="120" max="2000" step="10" value="460" />
     </label>
     <button class="btn icon" id="vis" title="Show / hide the minimap">👁</button>
+  </div>
+
+  <div class="row">
+    <span class="label">Hotkey</span>
+    <input id="hotkey" class="hotkey" title="Key combo that shows/hides the overlay. Click, then press the combo." readonly />
+    <button class="btn icon" id="hotkeyReset" title="Reset to default (Ctrl+Shift+H)">↺</button>
   </div>
 
   <div class="row">
@@ -281,7 +311,46 @@
     $('vis').textContent = visible ? '👁' : '🚫'
     window.guiAPI.setVisible(visible)
   })
+
+  // Bindable show/hide hotkey: click the field, then press the combo.
+  let capturing = false
+  const hotkeyEl = $('hotkey')
+  const KEY_NAMES = { Control: 'Ctrl', Shift: 'Shift', Alt: 'Alt', Meta: 'Super' }
+  function comboFromEvent(e) {
+    const mods = []
+    if (e.ctrlKey) mods.push('Ctrl')
+    if (e.shiftKey) mods.push('Shift')
+    if (e.altKey) mods.push('Alt')
+    if (e.metaKey) mods.push('Super')
+    // A bare modifier press with no main key isn't a valid combo.
+    const k = e.key
+    if (['Control','Shift','Alt','Meta'].includes(k)) return null
+    const main = k.length === 1 ? k.toUpperCase() : k
+    return mods.concat([main]).join('+')
+  }
+  hotkeyEl.addEventListener('click', () => {
+    capturing = true
+    hotkeyEl.value = 'Press a combo…'
+    hotkeyEl.style.color = '#f97316'
+  })
+  window.addEventListener('keydown', (e) => {
+    if (!capturing) return
+    e.preventDefault()
+    const combo = comboFromEvent(e)
+    if (!combo) return
+    capturing = false
+    hotkeyEl.style.color = ''
+    window.guiAPI.setHotkey(combo).then((res) => {
+      hotkeyEl.value = res && res.ok ? res.hotkey : (res && res.error || 'Unavailable')
+    })
+  })
+  $('hotkeyReset').addEventListener('click', () => {
+    window.guiAPI.setHotkey('Ctrl+Shift+H').then((res) => {
+      hotkeyEl.value = res && res.ok ? res.hotkey : (res && res.error || 'Ctrl+Shift+H')
+    })
+  })
   $('quit').addEventListener('click', () => window.guiAPI.quit())
+  $('min').addEventListener('click', () => window.guiAPI.minimize())
 
   function fillMaps(selected) {
     const mapSel = $('map')
@@ -315,6 +384,10 @@
       window.__ver = version
       $('ver').textContent = 'v' + version
     }
+  })
+
+  window.guiAPI.getSettings().then((s) => {
+    if (s && s.toggleHotkey) hotkeyEl.value = s.toggleHotkey
   })
 </script>
 </body>
