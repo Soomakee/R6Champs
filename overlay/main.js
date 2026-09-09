@@ -223,10 +223,6 @@ let currentMap = process.env.MINIMAP_MAP || 'Calypso Casino'
 let currentFloor = 0
 let currentBg = 0.14 // background wash opacity (0 = none)
 
-// Player marker per map+floor, stored as { u, v } = normalized image coords
-// (0..1 across the image width/height). Keyed like "MAP/floor-name".
-let playerMarkers = {}
-
 let minimap = null
 let gui = null
 
@@ -240,19 +236,6 @@ function currentSrc() {
   const floors = manifest[currentMap] || []
   const floor = floors[Math.min(currentFloor, floors.length - 1)]
   return floor ? floor.src : null
-}
-
-// Unique key for the currently-selected floor's marker slot.
-function currentFloorKey() {
-  const floors = scanOverlays()[currentMap] || []
-  const floor = floors[Math.min(currentFloor, floors.length - 1)]
-  return floor ? `${currentMap}/${floor.name}` : null
-}
-
-function sendMarker() {
-  if (!minimap) return
-  const key = currentFloorKey()
-  minimap.webContents.send('minimap:marker', key ? playerMarkers[key] || null : null)
 }
 
 function createMinimap() {
@@ -283,7 +266,6 @@ function createMinimap() {
     const src = currentSrc()
     if (src) minimap.webContents.send('minimap:src', src)
     minimap.webContents.send('minimap:bg', currentBg)
-    sendMarker()
   })
   minimap.on('closed', () => (minimap = null))
 }
@@ -421,24 +403,7 @@ ipcMain.handle('gui:select', (_e, { map, floor }) => {
   if (Number.isInteger(floor)) currentFloor = floor
   const src = currentSrc()
   if (src) minimap?.webContents.send('minimap:src', src)
-  sendMarker()
   return { map: currentMap, floor: currentFloor, src }
-})
-// GUI sets the player marker for the current floor.
-ipcMain.handle('minimap:setmarker', (_e, point) => {
-  const key = currentFloorKey()
-  if (!key) return { ok: false }
-  if (point && typeof point.u === 'number' && typeof point.v === 'number') {
-    // Clamp to the unit square so the dot always sits inside the image.
-    playerMarkers[key] = {
-      u: Math.min(1, Math.max(0, point.u)),
-      v: Math.min(1, Math.max(0, point.v)),
-    }
-  } else {
-    delete playerMarkers[key]
-  }
-  minimap?.webContents.send('minimap:marker', playerMarkers[key] || null)
-  return { ok: true, marker: playerMarkers[key] || null }
 })
 ipcMain.handle('minimap:bg', (_e, v) => {
   currentBg = Math.min(1, Math.max(0, Number(v) || 0))
