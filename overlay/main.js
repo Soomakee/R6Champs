@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, globalShortcut } = require('electron')
 const path = require('path')
 const fs = require('fs')
+const crypto = require('crypto')
 const { initUpdater, autoUpdater } = require('./updater')
 
 // Fully self-contained: both windows load local HTML files, overlay images
@@ -99,7 +100,20 @@ async function checkForMapUpdates() {
     for (const entry of entries) {
       const rel = entry.path.slice(PREFIX.length) // e.g. "Bank/Basement.png"
       const dest = path.join(OVERLAYS_DIR, rel)
-      if (known[entry.path] === entry.sha && fs.existsSync(dest)) continue
+      // Verify the disk file actually matches the git blob sha — the state
+      // file alone can't be trusted (e.g. a post-download overwrite leaves a
+      // stale record). Re-download on any mismatch.
+      if (known[entry.path] === entry.sha && fs.existsSync(dest)) {
+        try {
+          const disk = fs.readFileSync(dest)
+          const diskSha = crypto
+            .createHash('sha1')
+            .update(`blob ${disk.length}\u0000`)
+            .update(disk)
+            .digest('hex')
+          if (diskSha === entry.sha) continue
+        } catch {}
+      }
       const raw = await ghFetch(`${RAW_BASE}/${encodeURI(entry.path)}`)
       if (raw.status !== 200) continue
       fs.mkdirSync(path.dirname(dest), { recursive: true })
@@ -109,7 +123,13 @@ async function checkForMapUpdates() {
     }
     writeUpdateState({ head, files: known })
     lastUpdateCheck = { at: Date.now(), ok: true, added, updated: 0, error: null }
-    if (added > 0) broadcastUpdate()
+    if (added > 0) {
+      broadcastUpdate()
+      // Force the minimap to re-render its (now updated) image: the URL
+      // carries a new ?v= mtime stamp, bypassing Chromium's image cache.
+      const src = currentSrc()
+      if (src && minimap) minimap.webContents.send('minimap:src', src)
+    }
   } catch (err) {
     lastUpdateCheck = { at: Date.now(), ok: false, added, updated: 0, error: String(err.message || err) }
   }
@@ -160,7 +180,11 @@ function scanOverlays() {
       for (const floor of floors) {
         if (!out[entry.name]) out[entry.name] = []
         const key = entry.name + '/' + floor.name
-        const src = 'file:///' + floor.file.replace(/\\/g, '/')
+        // Cache-bust with mtime so an updated file (same path) re-renders
+        let src = 'file:///' + floor.file.replace(/\\/g, '/')
+        try {
+          src += '?v=' + fs.statSync(floor.file).mtimeMs
+        } catch {}
         const existing = out[entry.name].find((x) => x.name === floor.name)
         if (existing) existing.src = src
         else out[entry.name].push({ name: floor.name, src })
@@ -252,11 +276,22 @@ function createGui() {
 app.whenReady().then(() => {
   // One-time repair for the early buggy build: it downloaded overlays into
   // userData/Map Blueprints Overlays (via a '..' path join) instead of
-  // userData/overlays. Migrate everything over, then remove the stray dir.
+  // userData/overlays. Migrate anything NOT already present (never clobber
+  // newer downloaded files), then remove the stray dir.
   try {
     const stray = path.join(app.getPath('userData'), 'Map Blueprints Overlays')
     if (fs.existsSync(stray)) {
-      fs.cpSync(stray, OVERLAYS_DIR, { recursive: true, force: true })
+      for (const map of fs.readdirSync(stray)) {
+        const srcMap = path.join(stray, map)
+        if (!fs.statSync(srcMap).isDirectory()) continue
+        for (const f of fs.readdirSync(srcMap)) {
+          const dest = path.join(OVERLAYS_DIR, map, f)
+          if (!fs.existsSync(dest)) {
+            fs.mkdirSync(path.dirname(dest), { recursive: true })
+            fs.copyFileSync(path.join(srcMap, f), dest)
+          }
+        }
+      }
       fs.rmSync(stray, { recursive: true, force: true })
     }
     fs.rmSync(path.join(app.getPath('userData'), 'assets'), { recursive: true, force: true })
