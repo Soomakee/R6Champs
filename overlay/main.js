@@ -41,6 +41,7 @@ const DEFAULT_SETTINGS = {
   background: 0.14,
   minimapX: null, // last overlay position (null = OS default on first launch)
   minimapY: null,
+  minimapLocked: false, // when true the overlay ignores all mouse input (click-through)
 }
 let settings = { ...DEFAULT_SETTINGS }
 
@@ -325,6 +326,7 @@ function createMinimap() {
   })
   minimap.setAlwaysOnTop(true, 'screen-saver')
   restoreMinimapPosition()
+  if (settings.minimapLocked) minimap.setIgnoreMouseEvents(true)
   // Remember where the user parked the overlay so it survives restarts.
   let posTimer = null
   minimap.on('move', () => {
@@ -432,7 +434,7 @@ app.whenReady().then(() => {
       gui.show()
       gui.focus()
     }
-    if (minimap) minimap.show()
+    if (minimap) minimap.showInactive()
   })
 
   // One-time repair for the early buggy build: it downloaded overlays into
@@ -484,7 +486,9 @@ let fadeTimer = null
 function fadeMinimap(show) {
   if (!minimap) return
   clearTimeout(fadeTimer)
-  if (show) minimap.show()
+  // showInactive: appear WITHOUT taking focus, so toggling while in-game
+  // never tabs the user out of the game.
+  if (show) minimap.showInactive()
   const steps = 10
   const from = show ? 0 : minimap.getOpacity()
   const to = show ? 1 : 0
@@ -617,6 +621,15 @@ ipcMain.handle('gui:minimize', () => {
   // Minimize only the control panel, not the minimap overlay.
   if (gui) gui.minimize()
 })
+ipcMain.handle('minimap:lock', (_e, on) => {
+  const locked = !!on
+  setSetting('minimapLocked', locked)
+  // Ignore-mouse-events makes the window fully click-through: the game (or
+  // anything beneath) receives clicks instead of the overlay.
+  minimap?.setIgnoreMouseEvents(locked)
+  return locked
+})
+ipcMain.handle('minimap:getlocked', () => !!settings.minimapLocked)
 ipcMain.handle('gui:resetpos', () => {
   resetMinimapPosition()
   return true

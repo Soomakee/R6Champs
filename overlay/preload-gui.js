@@ -18,5 +18,7 @@ contextBridge.exposeInMainWorld('guiAPI', {
   installUpdate: () => ipcRenderer.invoke('gui:installupdate'),
   minimize: () => ipcRenderer.invoke('gui:minimize'),
   resetPos: () => ipcRenderer.invoke('gui:resetpos'),
+  setLocked: (on) => ipcRenderer.invoke('minimap:lock', on),
+  getLocked: () => ipcRenderer.invoke('minimap:getlocked'),
   quit: () => ipcRenderer.invoke('gui:quit'),
 })
