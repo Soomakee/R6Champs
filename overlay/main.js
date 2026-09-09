@@ -255,7 +255,7 @@ function createMinimap() {
 function createGui() {
   gui = new BrowserWindow({
     width: 280,
-    height: 158,
+    height: 180,
     frame: false,
     transparent: true,
     hasShadow: false,
@@ -392,6 +392,10 @@ ipcMain.handle('minimap:bg', (_e, v) => {
 })
 ipcMain.handle('gui:updatestatus', () => lastUpdateCheck)
 ipcMain.handle('gui:checknow', async () => checkForMapUpdates())
+ipcMain.handle('gui:checkappupdate', () => {
+  if (app.isPackaged) autoUpdater.checkForUpdates().catch(() => {})
+  return true
+})
 ipcMain.handle('gui:installupdate', () => {
   autoUpdater.quitAndInstall(false, true)
 })

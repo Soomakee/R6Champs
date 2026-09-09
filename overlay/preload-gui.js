@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('guiAPI', {
   select: (sel) => ipcRenderer.invoke('gui:select', sel),
   updateStatus: () => ipcRenderer.invoke('gui:updatestatus'),
   checkNow: () => ipcRenderer.invoke('gui:checknow'),
+  checkAppUpdate: () => ipcRenderer.invoke('gui:checkappupdate'),
   onAppUpdate: (cb) => ipcRenderer.on('gui:appupdate', (_e, s) => cb(s)),
   installUpdate: () => ipcRenderer.invoke('gui:installupdate'),
   quit: () => ipcRenderer.invoke('gui:quit'),

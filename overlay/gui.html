@@ -57,7 +57,8 @@
     <button class="btn" id="vis" title="Show / hide the minimap">👁</button>
   </div>
   <div class="controls upd">
-    <button class="btn update" id="upd" title="Check GitHub for new/updated map overlays">↻ Check for map updates</button>
+    <button class="btn update" id="appupdcheck" title="Check for a new app version">↻ Check for app update</button>
+    <button class="btn update" id="upd" title="Check GitHub for new/updated map overlays">↻ Check map</button>
     <span class="note" id="updnote"></span>
   </div>
   <div class="controls upd" id="appupdrow" style="display:none">
@@ -138,6 +139,14 @@
       el.appendChild(b)
     }
   }
+
+  $('appupdcheck').addEventListener('click', () => {
+    const b = $('appupdcheck')
+    b.textContent = 'Checking…'
+    window.guiAPI.checkAppUpdate()
+    // The status arrives via onAppUpdate events; if nothing is found, show it.
+    setTimeout(() => { if (b.textContent === 'Checking…') b.textContent = '↻ Check for app update' }, 4000)
+  })
 
   $('upd').addEventListener('click', async () => {
     $('updnote').textContent = 'Checking…'
