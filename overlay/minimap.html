@@ -19,16 +19,65 @@
     outline-offset: -1px;
     filter: drop-shadow(0 0 6px rgba(0,0,0,0.55));
   }
+  /* Wrapper matches the rendered image box exactly, so the dot + click map 1:1 */
+  .mapwrap { position: relative; display: inline-block; pointer-events: auto; }
+  #dot {
+    position: absolute; width: 12px; height: 12px; border-radius: 50%;
+    transform: translate(-50%, -50%);
+    background: #f97316; border: 2px solid rgba(255,255,255,0.9);
+    box-shadow: 0 0 6px rgba(0,0,0,0.8), 0 0 0 2px rgba(249,115,22,0.4);
+    display: none; pointer-events: none; z-index: 2;
+  }
 </style>
 </head>
 <body>
-<div id="root"><img id="img" draggable="false" /></div>
+<div id="root">
+  <div class="mapwrap" id="wrap">
+    <img id="img" draggable="false" />
+    <div id="dot"></div>
+  </div>
+</div>
 <script>
   const img = document.getElementById('img')
+  const dot = document.getElementById('dot')
+  const wrap = document.getElementById('wrap')
+
+  let marker = null // { u, v } normalized 0..1 across the image
+  let imgNaturalW = 0, imgNaturalH = 0
+
+  function placeDot() {
+    if (!marker) { dot.style.display = 'none'; return }
+    // Position dot relative to the rendered image box.
+    const r = img.getBoundingClientRect()
+    dot.style.display = 'block'
+    dot.style.left = (marker.u * r.width) + 'px'
+    dot.style.top = (marker.v * r.height) + 'px'
+  }
+
+  window.minimapAPI.onMarker((m) => { marker = m || null; placeDot() })
   window.minimapAPI.onSrc((src) => { img.src = src })
   window.minimapAPI.onBg((v) => {
     img.style.background = v > 0 ? `rgba(128,128,128,${v})` : 'transparent'
   })
+
+  // Keep the dot correct if the image size/layout changes (e.g. after load or resize).
+  img.addEventListener('load', () => {
+    imgNaturalW = img.naturalWidth
+    imgNaturalH = img.naturalHeight
+    placeDot()
+  })
+  window.addEventListener('resize', placeDot)
+
+  // Click on the image sets the marker at that spot (normalized to image coords).
+  img.addEventListener('click', (e) => {
+    const r = img.getBoundingClientRect()
+    const u = (e.clientX - r.left) / r.width
+    const v = (e.clientY - r.top) / r.height
+    window.minimapAPI.setMarker({ u, v })
+    marker = { u, v }
+    placeDot()
+  })
+
   img.addEventListener('dblclick', () => window.minimapAPI.close())
 </script>
 </body>
