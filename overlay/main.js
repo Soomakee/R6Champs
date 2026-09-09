@@ -152,7 +152,10 @@ function broadcastUpdate() {
   }
 }
 
+let lastAppUpdateStatus = null
+
 function broadcastAppUpdate(status) {
+  lastAppUpdateStatus = status
   if (gui) gui.webContents.send('gui:appupdate', status)
 }
 
@@ -277,6 +280,11 @@ function createGui() {
       width: minimap ? minimap.getSize()[0] : 460,
       version: app.getVersion(),
     })
+    // The updater usually fires before this window finishes loading — replay
+    // the last status so the GUI shows the true current update state.
+    if (lastAppUpdateStatus) {
+      setTimeout(() => gui && gui.webContents.send('gui:appupdate', lastAppUpdateStatus), 150)
+    }
   })
   gui.on('closed', () => (gui = null))
 }
