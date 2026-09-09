@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, globalShortcut } = require('electron')
+const { app, BrowserWindow, ipcMain, globalShortcut, dialog } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const crypto = require('crypto')
@@ -39,6 +39,8 @@ const DEFAULT_SETTINGS = {
   toggleHotkey: 'Ctrl+Shift+H', // bindable key-combo that shows/hides the minimap
   minimapWidth: 460,
   background: 0.14,
+  minimapX: null, // last overlay position (null = OS default on first launch)
+  minimapY: null,
 }
 let settings = { ...DEFAULT_SETTINGS }
 
@@ -64,6 +66,36 @@ function setSetting(key, value) {
 // Load persisted settings early so window size / background / hotkey defaults
 // reflect the user's last session before any window is created.
 loadSettings()
+
+// --- Single-instance lock ----------------------------------------------------
+// Only allow one copy of the app. A second launch focuses the already-running
+// windows instead of starting a competing instance (which would fight over
+// settings.json, overlay files, and the global hotkey).
+const gotTheLock = app.requestSingleInstanceLock()
+if (!gotTheLock) {
+  app.quit()
+}
+
+// --- Crash logging -----------------------------------------------------------
+// A silent main-process crash is the worst failure mode (the app just
+// disappears). Log the error to userData/error.log and surface a dialog so it
+// isn't a mystery for you or your friends.
+function logCrash(kind, err) {
+  try {
+    const stamp = new Date().toISOString()
+    const line = `${stamp} [${kind}] ${err && err.stack ? err.stack : err}\n`
+    fs.appendFileSync(path.join(app.getPath('userData'), 'error.log'), line)
+  } catch {}
+}
+process.on('uncaughtException', (err) => {
+  logCrash('uncaughtException', err)
+  try {
+    dialog.showErrorBox('R6Legends Overlay', `Something went wrong.\nA log was saved to:\n${path.join(app.getPath('userData'), 'error.log')}`)
+  } catch {}
+})
+process.on('unhandledRejection', (err) => {
+  logCrash('unhandledRejection', err)
+})
 
 function ghFetch(url) {
   return new Promise((resolve, reject) => {
@@ -292,6 +324,18 @@ function createMinimap() {
     },
   })
   minimap.setAlwaysOnTop(true, 'screen-saver')
+  restoreMinimapPosition()
+  // Remember where the user parked the overlay so it survives restarts.
+  let posTimer = null
+  minimap.on('move', () => {
+    clearTimeout(posTimer)
+    posTimer = setTimeout(() => {
+      if (!minimap) return
+      const [x, y] = minimap.getPosition()
+      setSetting('minimapX', x)
+      setSetting('minimapY', y)
+    }, 250)
+  })
   minimap.loadFile(path.join(__dirname, 'minimap.html'))
   // Hand the page its image (and any later changes) once it's up
   minimap.webContents.on('did-finish-load', () => {
@@ -300,6 +344,44 @@ function createMinimap() {
     minimap.webContents.send('minimap:bg', currentBg)
   })
   minimap.on('closed', () => (minimap = null))
+}
+
+// Move the overlay to a saved position if one exists, clamped so it's always
+// fully (or at least mostly) visible on some display — a saved position can
+// become invalid if a monitor is unplugged or resolution changes.
+function restoreMinimapPosition() {
+  if (!minimap) return
+  const { minimapX, minimapY } = settings
+  if (typeof minimapX === 'number' && typeof minimapY === 'number') {
+    const [w, h] = minimap.getSize()
+    const visible = require('electron').screen
+      .getAllDisplays()
+      .find((d) => {
+        const { x, y, width, height } = d.workArea
+        return (
+          minimapX < x + width - 40 &&
+          minimapX + w > x + 40 &&
+          minimapY < y + height - 40 &&
+          minimapY + h > y + 40
+        )
+      })
+    if (visible) minimap.setPosition(minimapX, minimapY)
+  }
+}
+
+// Reset the overlay to a centered position on the primary display (or the
+// display the overlay is currently nearest to), in case it ever gets lost
+// off-screen.
+function resetMinimapPosition() {
+  if (!minimap) return
+  const { screen } = require('electron')
+  const cur = screen.getDisplayMatching(minimap.getBounds())
+  const { x, y, width, height } = cur.workArea
+  const [w, h] = minimap.getSize()
+  minimap.setPosition(Math.round(x + (width - w) / 2), Math.round(y + (height - h) / 2))
+  const [nx, ny] = minimap.getPosition()
+  setSetting('minimapX', nx)
+  setSetting('minimapY', ny)
 }
 
 function createGui() {
@@ -340,6 +422,19 @@ function createGui() {
 }
 
 app.whenReady().then(() => {
+  if (!gotTheLock) return // a second instance already owns the app
+
+  // If the user launches the app again while it's already running, focus
+  // the existing windows rather than starting a duplicate.
+  app.on('second-instance', () => {
+    if (gui) {
+      if (gui.isMinimized()) gui.restore()
+      gui.show()
+      gui.focus()
+    }
+    if (minimap) minimap.show()
+  })
+
   // One-time repair for the early buggy build: it downloaded overlays into
   // userData/Map Blueprints Overlays (via a '..' path join) instead of
   // userData/overlays. Migrate anything NOT already present (never clobber
@@ -375,14 +470,11 @@ app.whenReady().then(() => {
     minimap.setAlwaysOnTop(!pinned, 'screen-saver')
   })
 
-  // Map auto-update: check now, then every 30 minutes
-  checkForMapUpdates()
-  setInterval(checkForMapUpdates, 30 * 60 * 1000)
-
-  // App self-update (only meaningful when packaged; skipped in dev)
+  // App self-update wiring (only meaningful when packaged; skipped in dev).
+  // Updates are checked ONLY when the user clicks "Check for app update" —
+  // never automatically on launch.
   if (app.isPackaged) {
     initUpdater(broadcastAppUpdate)
-    autoUpdater.checkForUpdatesAndNotify().catch(() => {})
   }
 })
 
@@ -524,6 +616,10 @@ ipcMain.handle('gui:installupdate', () => {
 ipcMain.handle('gui:minimize', () => {
   // Minimize only the control panel, not the minimap overlay.
   if (gui) gui.minimize()
+})
+ipcMain.handle('gui:resetpos', () => {
+  resetMinimapPosition()
+  return true
 })
 ipcMain.handle('gui:quit', () => app.quit())
 

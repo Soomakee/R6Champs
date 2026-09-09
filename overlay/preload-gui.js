@@ -17,5 +17,6 @@ contextBridge.exposeInMainWorld('guiAPI', {
   onAppUpdate: (cb) => ipcRenderer.on('gui:appupdate', (_e, s) => cb(s)),
   installUpdate: () => ipcRenderer.invoke('gui:installupdate'),
   minimize: () => ipcRenderer.invoke('gui:minimize'),
+  resetPos: () => ipcRenderer.invoke('gui:resetpos'),
   quit: () => ipcRenderer.invoke('gui:quit'),
 })
