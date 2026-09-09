@@ -275,6 +275,7 @@ function createGui() {
       map: currentMap,
       floor: currentFloor,
       width: minimap ? minimap.getSize()[0] : 460,
+      version: app.getVersion(),
     })
   })
   gui.on('closed', () => (gui = null))

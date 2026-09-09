@@ -60,7 +60,7 @@
     <span class="note" id="updnote"></span>
   </div>
   <div class="controls upd" id="appupdrow" style="display:none">
-    <span class="note" id="appupd"></span>
+    <span class="note" id="appupd" style="color:#f5a623"></span>
   </div>
 </div>
 <script>
@@ -115,17 +115,17 @@
       return
     }
     row.style.display = 'flex'
-    if (appUpdate.appUpdate === 'downloading') {
-      el.textContent = `App update ${appUpdate.percent}%`
+    if (appUpdate.appUpdate === 'available') {
+      el.textContent = `⚠ Update available (v${appUpdate.version}) — downloading…`
+    } else if (appUpdate.appUpdate === 'downloading') {
+      el.textContent = `⚠ Update v${appUpdate.version && appUpdate.version} — ${appUpdate.percent}%`
     } else if (appUpdate.appUpdate === 'ready') {
       el.innerHTML = ''
       const b = document.createElement('button')
       b.className = 'btn update'
-      b.textContent = '⟳ Restart to update app'
+      b.textContent = `⟳ Update to v${appUpdate.version} ready — restart the app`
       b.onclick = () => window.guiAPI.installUpdate()
       el.appendChild(b)
-    } else if (appUpdate.appUpdate === 'available') {
-      el.textContent = 'App update downloading…'
     }
   }
 
@@ -139,11 +139,23 @@
   })
 
   // initial state from main process
-  window.guiAPI.getManifest().then(({ manifest: mf, map, floor, width }) => {
+  window.guiAPI.getManifest().then(({ manifest: mf, map, floor, width, version }) => {
     manifest = mf || {}
     fillMaps(map)
     $('floor').value = floor
     if (width) $('size').value = width
+    if (version) {
+      let v = document.getElementById('ver')
+      if (!v) {
+        v = document.createElement('span')
+        v.id = 'ver'
+        v.className = 'note'
+        v.style.opacity = '0.55'
+        v.style.fontSize = '9px'
+        document.querySelector('.controls.upd').appendChild(v)
+      }
+      v.textContent = 'v' + version
+    }
   })
 </script>
 </body>

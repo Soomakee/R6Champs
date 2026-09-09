@@ -1,6 +1,6 @@
 {
   "name": "r6legends-overlay",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "R6Legends always-on-top blueprint overlay for Rainbow Six Siege",
   "main": "main.js",
   "author": "Soomakee",
