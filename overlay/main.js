@@ -228,6 +228,7 @@ function createMinimap() {
     minWidth: 120,
     minHeight: 90,
     frame: false,
+    resizable: false,
     transparent: true,
     hasShadow: false,
     // NOTE: no backgroundColor here — setting any background color (even
