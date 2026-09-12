@@ -186,9 +186,8 @@
 
   <div class="row">
     <span class="label">Floors</span>
-    <input id="hotkeyUp" class="hotkey" title="Floor up (higher floor). Click, then press the combo." readonly />
-    <input id="hotkeyDown" class="hotkey" title="Floor down (lower floor). Click, then press the combo." readonly />
-    <button class="btn icon" id="hotkeyFloorReset" title="Reset both to defaults (Ctrl+Shift+Up / Ctrl+Shift+Down)">↺</button>
+    <input id="hotkeyCycle" class="hotkey" title="Cycle through all floors of the current map. Click, then press the combo." readonly />
+    <button class="btn icon" id="hotkeyFloorReset" title="Reset to default (Ctrl+Shift+F)">↺</button>
   </div>
 
   <div class="row">
@@ -339,11 +338,10 @@
     setTimeout(() => { if (!window.__updateSeen) showNote('Ready') }, 2000)
   })
 
-  // Bindable hotkeys (show/hide + floor up/down): click a field, press a combo.
+  // Bindable hotkeys (show/hide + floor cycle): click a field, press a combo.
   let captureEl = null
   const hotkeyEl = $('hotkey')
-  const upEl = $('hotkeyUp')
-  const downEl = $('hotkeyDown')
+  const cycleEl = $('hotkeyCycle')
   function comboFromEvent(e) {
     const mods = []
     if (e.ctrlKey) mods.push('Ctrl')
@@ -363,8 +361,7 @@
     el.style.color = '#f97316'
   }
   hotkeyEl.addEventListener('click', () => beginCapture(hotkeyEl, 'toggle'))
-  upEl.addEventListener('click', () => beginCapture(upEl, 'floorUp'))
-  downEl.addEventListener('click', () => beginCapture(downEl, 'floorDown'))
+  cycleEl.addEventListener('click', () => beginCapture(cycleEl, 'cycle'))
   window.addEventListener('keydown', (e) => {
     if (!captureEl) return
     e.preventDefault()
@@ -383,11 +380,8 @@
     })
   })
   $('hotkeyFloorReset').addEventListener('click', () => {
-    window.guiAPI.setHotkey('floorUp', 'Ctrl+Shift+Up').then((r1) => {
-      upEl.value = r1 && r1.ok ? r1.hotkey : (r1 && r1.error || 'Ctrl+Shift+Up')
-      return window.guiAPI.setHotkey('floorDown', 'Ctrl+Shift+Down')
-    }).then((r2) => {
-      downEl.value = r2 && r2.ok ? r2.hotkey : (r2 && r2.error || 'Ctrl+Shift+Down')
+    window.guiAPI.setHotkey('cycle', 'Ctrl+Shift+F').then((res) => {
+      cycleEl.value = res && res.ok ? res.hotkey : (res && res.error || 'Ctrl+Shift+F')
     })
   })
   $('quit').addEventListener('click', () => window.guiAPI.quit())
@@ -429,8 +423,7 @@
 
   window.guiAPI.getSettings().then((s) => {
     if (s && s.toggleHotkey) hotkeyEl.value = s.toggleHotkey
-    if (s && s.floorUpHotkey) upEl.value = s.floorUpHotkey
-    if (s && s.floorDownHotkey) downEl.value = s.floorDownHotkey
+    if (s && s.cycleFloorHotkey) cycleEl.value = s.cycleFloorHotkey
   })
 
   // Keep the floor dropdown in sync when floors are swapped via hotkey.
