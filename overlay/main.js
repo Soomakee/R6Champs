@@ -42,6 +42,8 @@ const DEFAULT_SETTINGS = {
   minimapX: null, // last overlay position (null = OS default on first launch)
   minimapY: null,
   minimapLocked: false, // when true the overlay ignores all mouse input (click-through)
+  floorUpHotkey: 'Ctrl+Shift+Up', // select the floor above
+  floorDownHotkey: 'Ctrl+Shift+Down', // select the floor below
 }
 let settings = { ...DEFAULT_SETTINGS }
 
@@ -389,7 +391,7 @@ function resetMinimapPosition() {
 function createGui() {
   gui = new BrowserWindow({
     width: 300,
-    height: 300,
+    height: 340,
     frame: false,
     transparent: true,
     hasShadow: false,
@@ -463,8 +465,8 @@ app.whenReady().then(() => {
   createMinimap()
   createGui()
 
-  // Bindable hotkey hides/shows the minimap from anywhere (e.g. in-game).
-  registerToggleHotkey()
+  // Bindable hotkeys: show/hide + floor up/down, usable from anywhere.
+  registerHotkeys()
   // Ctrl+Shift+O pins/unpins (always-on-top toggle)
   globalShortcut.register('Ctrl+Shift+O', () => {
     if (!minimap) return
@@ -513,11 +515,31 @@ function toggleMinimap() {
   fadeMinimap(!minimap.isVisible())
 }
 
-// Register (or re-register) the user's bindable show/hide hotkey.
-function registerToggleHotkey() {
-  globalShortcut.unregister(settings.toggleHotkey)
-  if (settings.toggleHotkey) {
-    globalShortcut.register(settings.toggleHotkey, toggleMinimap)
+// Move the floor selection up/down within the current map. The manifest is
+// sorted top-down (index 0 = Top Floor), so "floor above" = index - 1.
+function swapFloor(delta) {
+  const floors = scanOverlays()[currentMap] || []
+  if (!floors.length) return
+  const next = Math.min(floors.length - 1, Math.max(0, currentFloor + delta))
+  if (next === currentFloor) return
+  currentFloor = next
+  const src = currentSrc()
+  if (src && minimap) minimap.webContents.send('minimap:src', src)
+  // Keep the GUI's floor dropdown in sync when the change came from a hotkey.
+  if (gui) gui.webContents.send('gui:floorsync', { map: currentMap, floor: currentFloor })
+}
+
+// Register (or re-register) all bindable hotkeys: show/hide + floor up/down.
+function registerHotkeys() {
+  const bindings = [
+    [settings.toggleHotkey, toggleMinimap],
+    [settings.floorUpHotkey, () => swapFloor(-1)],
+    [settings.floorDownHotkey, () => swapFloor(1)],
+  ]
+  for (const [combo, action] of bindings) {
+    if (!combo) continue
+    try { globalShortcut.unregister(combo) } catch {}
+    globalShortcut.register(combo, action)
   }
 }
 
@@ -564,26 +586,30 @@ ipcMain.handle('minimap:getwidth', () => {
   const [w] = minimap.getSize()
   return w
 })
-// Read the current settings for the GUI (hotkey, etc.).
+// Read the current settings for the GUI (hotkeys, etc.).
 ipcMain.handle('gui:settings', () => ({ ...settings }))
-// Set the toggle-hotkey; re-registers it. Returns ok + the active combo.
-ipcMain.handle('gui:sethotkey', (_e, combo) => {
+// Set one of the bindable hotkeys (toggle/floorUp/floorDown); re-registers it.
+// Returns ok + the active combo so the GUI shows the truth.
+ipcMain.handle('gui:sethotkey', (_e, { which, combo }) => {
+  const key = which === 'floorUp' ? 'floorUpHotkey' : which === 'floorDown' ? 'floorDownHotkey' : 'toggleHotkey'
   const accel = normalizeAccelerator(combo)
   if (!accel) return { ok: false, error: 'Invalid combo' }
-  // Drop the old binding first so switching (e.g. Ctrl+H -> Alt+H) is clean.
-  if (settings.toggleHotkey) globalShortcut.unregister(settings.toggleHotkey)
+  if (accel === settings.toggleHotkey && key !== 'toggleHotkey') return { ok: false, error: 'Already used by show/hide' }
+  if ((accel === settings.floorUpHotkey && key !== 'floorUp') || (accel === settings.floorDownHotkey && key !== 'floorDown')) return { ok: false, error: 'Already used' }
+  const old = settings[key]
+  if (old) { try { globalShortcut.unregister(old) } catch {} }
   try {
-    const ok = globalShortcut.register(accel, toggleMinimap)
+    const ok = globalShortcut.register(accel, key === 'toggleHotkey' ? toggleMinimap : key === 'floorUp' ? () => swapFloor(-1) : () => swapFloor(1))
     if (!ok) {
       // Failed (e.g. bare letter on Windows). Restore the old binding.
-      if (settings.toggleHotkey) globalShortcut.register(settings.toggleHotkey, toggleMinimap)
+      if (old) globalShortcut.register(old, key === 'toggleHotkey' ? toggleMinimap : key === 'floorUp' ? () => swapFloor(-1) : () => swapFloor(1))
       return { ok: false, error: 'Combo unavailable' }
     }
   } catch {
-    if (settings.toggleHotkey) globalShortcut.register(settings.toggleHotkey, toggleMinimap)
+    if (old) globalShortcut.register(old, key === 'toggleHotkey' ? toggleMinimap : key === 'floorUp' ? () => swapFloor(-1) : () => swapFloor(1))
     return { ok: false, error: 'Invalid combo' }
   }
-  setSetting('toggleHotkey', accel)
+  setSetting(key, accel)
   return { ok: true, hotkey: accel }
 })
 ipcMain.handle('gui:manifest', () => ({

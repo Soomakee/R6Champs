@@ -185,6 +185,13 @@
   </div>
 
   <div class="row">
+    <span class="label">Floors</span>
+    <input id="hotkeyUp" class="hotkey" title="Floor up (higher floor). Click, then press the combo." readonly />
+    <input id="hotkeyDown" class="hotkey" title="Floor down (lower floor). Click, then press the combo." readonly />
+    <button class="btn icon" id="hotkeyFloorReset" title="Reset both to defaults (Ctrl+Shift+Up / Ctrl+Shift+Down)">↺</button>
+  </div>
+
+  <div class="row">
     <div class="checks">
       <button class="btn primary" id="appupdcheck" title="Check for a new app version">↻ Check for app update</button>
       <button class="btn" id="upd" title="Check GitHub for new/updated map overlays">↻ Check map</button>
@@ -332,10 +339,11 @@
     setTimeout(() => { if (!window.__updateSeen) showNote('Ready') }, 2000)
   })
 
-  // Bindable show/hide hotkey: click the field, then press the combo.
-  let capturing = false
+  // Bindable hotkeys (show/hide + floor up/down): click a field, press a combo.
+  let captureEl = null
   const hotkeyEl = $('hotkey')
-  const KEY_NAMES = { Control: 'Ctrl', Shift: 'Shift', Alt: 'Alt', Meta: 'Super' }
+  const upEl = $('hotkeyUp')
+  const downEl = $('hotkeyDown')
   function comboFromEvent(e) {
     const mods = []
     if (e.ctrlKey) mods.push('Ctrl')
@@ -345,28 +353,41 @@
     // A bare modifier press with no main key isn't a valid combo.
     const k = e.key
     if (['Control','Shift','Alt','Meta'].includes(k)) return null
+    // Electron accelerator names for arrows/etc. match e.key.
     const main = k.length === 1 ? k.toUpperCase() : k
     return mods.concat([main]).join('+')
   }
-  hotkeyEl.addEventListener('click', () => {
-    capturing = true
-    hotkeyEl.value = 'Press a combo…'
-    hotkeyEl.style.color = '#f97316'
-  })
+  function beginCapture(el, which) {
+    captureEl = { el, which }
+    el.value = 'Press a combo…'
+    el.style.color = '#f97316'
+  }
+  hotkeyEl.addEventListener('click', () => beginCapture(hotkeyEl, 'toggle'))
+  upEl.addEventListener('click', () => beginCapture(upEl, 'floorUp'))
+  downEl.addEventListener('click', () => beginCapture(downEl, 'floorDown'))
   window.addEventListener('keydown', (e) => {
-    if (!capturing) return
+    if (!captureEl) return
     e.preventDefault()
     const combo = comboFromEvent(e)
     if (!combo) return
-    capturing = false
-    hotkeyEl.style.color = ''
-    window.guiAPI.setHotkey(combo).then((res) => {
-      hotkeyEl.value = res && res.ok ? res.hotkey : (res && res.error || 'Unavailable')
+    const { el, which } = captureEl
+    captureEl = null
+    el.style.color = ''
+    window.guiAPI.setHotkey(which, combo).then((res) => {
+      el.value = res && res.ok ? res.hotkey : (res && res.error || 'Unavailable')
     })
   })
   $('hotkeyReset').addEventListener('click', () => {
-    window.guiAPI.setHotkey('Ctrl+Shift+H').then((res) => {
+    window.guiAPI.setHotkey('toggle', 'Ctrl+Shift+H').then((res) => {
       hotkeyEl.value = res && res.ok ? res.hotkey : (res && res.error || 'Ctrl+Shift+H')
+    })
+  })
+  $('hotkeyFloorReset').addEventListener('click', () => {
+    window.guiAPI.setHotkey('floorUp', 'Ctrl+Shift+Up').then((r1) => {
+      upEl.value = r1 && r1.ok ? r1.hotkey : (r1 && r1.error || 'Ctrl+Shift+Up')
+      return window.guiAPI.setHotkey('floorDown', 'Ctrl+Shift+Down')
+    }).then((r2) => {
+      downEl.value = r2 && r2.ok ? r2.hotkey : (r2 && r2.error || 'Ctrl+Shift+Down')
     })
   })
   $('quit').addEventListener('click', () => window.guiAPI.quit())
@@ -408,6 +429,13 @@
 
   window.guiAPI.getSettings().then((s) => {
     if (s && s.toggleHotkey) hotkeyEl.value = s.toggleHotkey
+    if (s && s.floorUpHotkey) upEl.value = s.floorUpHotkey
+    if (s && s.floorDownHotkey) downEl.value = s.floorDownHotkey
+  })
+
+  // Keep the floor dropdown in sync when floors are swapped via hotkey.
+  window.guiAPI.onFloorSync?.((s) => {
+    if (typeof s.floor === 'number') $('floor').value = s.floor
   })
 </script>
 </body>
