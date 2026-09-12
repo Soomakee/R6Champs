@@ -334,6 +334,7 @@ function createMinimap() {
     clearTimeout(posTimer)
     posTimer = setTimeout(() => {
       if (!minimap) return
+      constrainToDisplay()
       const [x, y] = minimap.getPosition()
       setSetting('minimapX', x)
       setSetting('minimapY', y)
@@ -349,27 +350,57 @@ function createMinimap() {
   minimap.on('closed', () => (minimap = null))
 }
 
-// Move the overlay to a saved position if one exists, clamped so it's always
-// fully (or at least mostly) visible on some display — a saved position can
-// become invalid if a monitor is unplugged or resolution changes.
+// Keep the overlay FULLY inside a single display's work area — it may never
+// span two monitors. A map split across screens gets its edges cut off, which
+// ruins floor-cycling on differently-shaped maps. If the window is larger than
+// the display, shrink it to fit (keeping the 4:3 aspect).
+function constrainToDisplay() {
+  if (!minimap) return
+  const { screen } = require('electron')
+  const b = minimap.getBounds()
+  // Own the overlay to the display containing the largest share of it.
+  let best = null
+  let bestOverlap = -1
+  for (const d of screen.getAllDisplays()) {
+    const a = d.workArea
+    const ox = Math.max(0, Math.min(b.x + b.width, a.x + a.width) - Math.max(b.x, a.x))
+    const oy = Math.max(0, Math.min(b.y + b.height, a.y + a.height) - Math.max(b.y, a.y))
+    if (ox * oy > bestOverlap) {
+      bestOverlap = ox * oy
+      best = d
+    }
+  }
+  if (!best) return
+  const a = best.workArea
+  let { width: w, height: h } = b
+  if (w > a.width || h > a.height) {
+    const scale = Math.min(a.width / w, a.height / h)
+    w = Math.max(120, Math.round(w * scale))
+    h = Math.round(w * 0.75)
+  }
+  const x = Math.min(Math.max(b.x, a.x), a.x + a.width - w)
+  const y = Math.min(Math.max(b.y, a.y), a.y + a.height - h)
+  if (w !== b.width || h !== b.height) {
+    // resizable:false blocks shrinking on Windows; toggle it around the change.
+    minimap.setResizable(true)
+    minimap.setBounds({ x, y, width: w, height: h })
+    minimap.setResizable(false)
+    setSetting('minimapWidth', w)
+  } else if (x !== b.x || y !== b.y) {
+    minimap.setPosition(x, y)
+  }
+}
+
+// Move the overlay to a saved position if one exists, then clamp it fully
+// onto one display (a saved position can be invalid after unplugging a
+// monitor or changing resolution).
 function restoreMinimapPosition() {
   if (!minimap) return
   const { minimapX, minimapY } = settings
   if (typeof minimapX === 'number' && typeof minimapY === 'number') {
-    const [w, h] = minimap.getSize()
-    const visible = require('electron').screen
-      .getAllDisplays()
-      .find((d) => {
-        const { x, y, width, height } = d.workArea
-        return (
-          minimapX < x + width - 40 &&
-          minimapX + w > x + 40 &&
-          minimapY < y + height - 40 &&
-          minimapY + h > y + 40
-        )
-      })
-    if (visible) minimap.setPosition(minimapX, minimapY)
+    minimap.setPosition(minimapX, minimapY)
   }
+  constrainToDisplay()
 }
 
 // Reset the overlay to a centered position on the primary display (or the
@@ -382,6 +413,7 @@ function resetMinimapPosition() {
   const { x, y, width, height } = cur.workArea
   const [w, h] = minimap.getSize()
   minimap.setPosition(Math.round(x + (width - w) / 2), Math.round(y + (height - h) / 2))
+  constrainToDisplay()
   const [nx, ny] = minimap.getPosition()
   setSetting('minimapX', nx)
   setSetting('minimapY', ny)
@@ -479,6 +511,17 @@ app.whenReady().then(() => {
   if (app.isPackaged) {
     initUpdater(broadcastAppUpdate)
   }
+
+  // If monitors are unplugged/resolution changes, re-clamp the overlay fully
+  // onto one display so it can't end up lost or straddling screens.
+  require('electron').screen.on('display-metrics-changed', () => {
+    if (minimap) {
+      constrainToDisplay()
+      const [x, y] = minimap.getPosition()
+      setSetting('minimapX', x)
+      setSetting('minimapY', y)
+    }
+  })
 })
 
 // Smoothly fade the overlay in/out. show()/hide() alone is an instant cut that
@@ -575,6 +618,7 @@ ipcMain.handle('minimap:width', (_e, w) => {
   minimap.setResizable(true)
   minimap.setSize(width, Math.round(width * 0.75))
   minimap.setResizable(false)
+  constrainToDisplay()
   setSetting('minimapWidth', width)
   return width
 })

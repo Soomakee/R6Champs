@@ -192,8 +192,7 @@
 
   <div class="row">
     <div class="checks">
-      <button class="btn primary" id="appupdcheck" title="Check for a new app version">↻ Check for app update</button>
-      <button class="btn" id="upd" title="Check GitHub for new/updated map overlays">↻ Check map</button>
+      <button class="btn primary" id="checkall" title="Check for a new app version AND new/updated map overlays">↻ Check for updates</button>
     </div>
   </div>
 
@@ -250,12 +249,15 @@
     const s = appUpdate
     if (!s) return
     if (s.appUpdate === 'none') {
-      // A manual check found no newer version.
+      // A manual check found no newer app version.
       if (window.__checkingApp) {
         window.__checkingApp = false
-        const b = $('appupdcheck')
-        if (b) b.textContent = '↻ Check for app update'
-        showNote('✓ You\'re up to date (v' + (window.__ver || '?') + ')')
+        const b = $('checkall')
+        if (b) {
+          b.disabled = false
+          b.textContent = '↻ Check for updates'
+        }
+        showNote('✓ App up to date (v' + (window.__ver || '?') + ')')
         setTimeout(() => { if (!window.__updateSeen) showNote('Ready') }, 3000)
       } else if (!window.__updateSeen) {
         showNote('Ready')
@@ -283,31 +285,34 @@
     }
   }
 
-  $('appupdcheck').addEventListener('click', () => {
-    const b = $('appupdcheck')
+  // One button kicks off BOTH checks (app + maps) in parallel. App-update
+  // results arrive via onAppUpdate; map results via checkNow below.
+  $('checkall').addEventListener('click', async () => {
+    const b = $('checkall')
+    if (b.disabled) return
+    b.disabled = true
     b.textContent = 'Checking…'
     window.__checkingApp = true
+    showNote('Checking app + maps…')
     window.guiAPI.checkAppUpdate()
-    // Fallback reset if no update event arrives.
+    try {
+      const res = await window.guiAPI.checkNow()
+      const ok = res && res.ok
+      if (!ok) showNote('Maps: offline')
+      else if (res.upToDate || res.added === 0) showNote('Maps up to date')
+      else showNote(`+${res.added} map image(s)`)
+      const m = await window.guiAPI.getManifest()
+      manifest = m.manifest
+      fillMaps(m.map)
+    } catch {}
+    // If the app updater said nothing (not packaged / quick 'none' already
+    // handled), restore the button. The 'none' event path also restores it.
     setTimeout(() => {
-      if (b.textContent === 'Checking…') {
-        b.textContent = '↻ Check for app update'
-        window.__checkingApp = false
-        showNote('Update check failed')
+      if (b.disabled) {
+        b.disabled = false
+        b.textContent = '↻ Check for updates'
       }
     }, 8000)
-  })
-
-  $('upd').addEventListener('click', async () => {
-    showNote('Checking maps…')
-    const res = await window.guiAPI.checkNow()
-    const ok = res && res.ok
-    if (!ok) showNote('Offline')
-    else if (res.upToDate || res.added === 0) showNote('Maps up to date')
-    else showNote(`+${res.added} map image(s)`)
-    const m = await window.guiAPI.getManifest()
-    manifest = m.manifest
-    fillMaps(m.map)
   })
 
   $('map').addEventListener('change', () => { fillFloors(); window.guiAPI.select({ map: $('map').value, floor: 0 }) })
